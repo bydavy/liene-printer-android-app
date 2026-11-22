@@ -95,7 +95,7 @@ jobs:
             grant Nearby devices access, then share a photo from any gallery
             app to **Liene** (or choose one in the app) and print.
 
-            **Status:** the protocol is hardware-tested on the N200 Pro via
-            the desktop client, but this Android print path still needs
-            hardware confirmation. Please report model, PID, firmware,
-            Android version/device, and a Diagnostics log.
+            **Status:** hardware-tested on the N200 Pro (DMP130) with a Pixel
+            11 Pro on Android 17 — share, connect, status, and printing work.
+            Other Liene/Hannto models remain untested. Please report model,
+            PID, firmware, Android version/device, and a Diagnostics log.

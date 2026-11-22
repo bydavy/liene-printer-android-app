@@ -29,8 +29,9 @@ photo browser to print a photo.
 
 The protocol was reverse-engineered and hardware-tested by the companion
 [Liene Desktop App](https://github.com/bydavy/liene-printer-desktop-app). The
-Android client is new: it builds and its protocol tests pass, but **printing
-from Android still needs hardware confirmation**. Please report results.
+Android client has been hardware-tested on a **Pixel 11 Pro (Android 17)** with
+an N200 Pro: share, Bluetooth connection, status, and printing all work. Other
+Liene/Hannto models remain untested.
 
 ![Liene Android app](docs/app.png)
 
@@ -55,7 +56,7 @@ from Android still needs hardware confirmation**. Please report results.
 
 | Model | Internal name | PID | Status |
 | --- | --- | --- | --- |
-| Liene Pearl N200 Pro | `cumin` | 3015 | Protocol tested via desktop; Android needs testing |
+| Liene Pearl N200 Pro | `cumin` | 3015 | **Tested** on Pixel 11 Pro, Android 17 |
 | Liene PixCut S1 | `perilla` | 3101 | Untested; help wanted |
 | Liene Amber M110/M210 | `laurel` | 3007 | Untested; help wanted |
 | Liene Photo Printer | `fennel` | 3005 | Untested; help wanted |
@@ -148,8 +149,9 @@ pipeline has instrumented tests; run them on an emulator or phone with:
 Hardware tests require a printer; please open a
 [Printer support report](https://github.com/bydavy/liene-printer-android-app/issues/new?template=printer-support.md)
 with model, PID, firmware, Android version/device, and a Diagnostics log.
-The UI and image pipeline were smoke-tested on an Android 15 emulator; the
-Bluetooth print path still needs a real phone and printer.
+Share, Bluetooth connect, status, and printing were verified on a Pixel 11 Pro
+(Android 17) with an N200 Pro. The UI and image pipeline are also smoke-tested
+on an Android 15 emulator.
 
 ## Releasing
 

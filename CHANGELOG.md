@@ -7,6 +7,7 @@
 - A final 2:3 preview and confirmation dialog before a print job starts,
   showing resolution, framing, copies, printer, and low-battery warning.
 - Android launcher icon based on the desktop app's photo-in-printer artwork.
+- Hardware-tested printing on a Pixel 11 Pro (Android 17) with an N200 Pro.
 
 ### Fixed
 
