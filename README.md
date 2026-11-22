@@ -3,6 +3,8 @@
 [![Android CI](https://github.com/bydavy/liene-printer-android-app/actions/workflows/android.yml/badge.svg)](https://github.com/bydavy/liene-printer-android-app/actions/workflows/android.yml)
 [![Release](https://img.shields.io/github/v/release/bydavy/liene-printer-android-app?display_name=tag)](https://github.com/bydavy/liene-printer-android-app/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20me-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/davyleggieri)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support%20me-ffdd00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/davyleggieri)
 
 An unofficial, open-source Android app for **Liene/Hannto photo printers**,
 written in Kotlin with Jetpack Compose. Share a photo from any gallery app,
