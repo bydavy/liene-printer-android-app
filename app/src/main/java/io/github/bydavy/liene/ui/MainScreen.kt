@@ -54,7 +54,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
@@ -368,12 +367,10 @@ private fun SummaryRow(label: String, value: String) {
 private fun PrintPreview(editor: EditorState, modifier: Modifier) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
             .background(Color.White)
             .border(
                 1.dp,
                 MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                RoundedCornerShape(8.dp),
             ),
     ) {
         val preview = editor.preview
@@ -456,7 +453,6 @@ private fun PhotoEditorCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(2f / 3f)
-                        .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -578,12 +574,10 @@ private fun FramedPreview(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(2f / 3f)
-            .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
             .border(
                 1.dp,
                 MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                RoundedCornerShape(16.dp),
             )
             .pointerInput(editor.fit, image.width, image.height) {
                 if (editor.fit == Fit.Cover) {

@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- The photo editor, empty photo area, and final print preview now have square
+  corners so the framing matches the printed paper.
+
 ## [0.1.1] - 2026-11-21
 
 ### Added
