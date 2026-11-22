@@ -118,10 +118,18 @@ Without those variables, `assembleRelease` falls back to debug signing.
 ```
 
 Unit tests cover frame encoding/decoding, checksums, stream resynchronisation,
-JSON-RPC shapes, chunking, job parsing, and the Fit/Fill/zoom math. Hardware
-tests require a printer; please open a
+JSON-RPC shapes, chunking, job parsing, and the Fit/Fill/zoom math. The image
+pipeline has instrumented tests; run them on an emulator or phone with:
+
+```sh
+./gradlew :app:connectedDebugAndroidTest
+```
+
+Hardware tests require a printer; please open a
 [Printer support report](https://github.com/bydavy/liene-printer-android/issues/new?template=printer-support.md)
 with model, PID, firmware, Android version/device, and a Diagnostics log.
+The UI and image pipeline were smoke-tested on an Android 15 emulator; the
+Bluetooth print path still needs a real phone and printer.
 
 ## Releasing
 
