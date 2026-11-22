@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -481,7 +482,7 @@ private fun CollageLoadingBar() {
 }
 
 @Composable
-private fun CollagePhotoFrameBar(
+internal fun CollagePhotoFrameBar(
     onReplace: () -> Unit,
     onRotate: () -> Unit,
     onReset: () -> Unit,
@@ -505,7 +506,7 @@ private fun CollagePhotoFrameBar(
 }
 
 @Composable
-private fun CollagePhotoFrameContent(
+internal fun CollagePhotoFrameContent(
     collage: CollageState,
     index: Int,
     onGesture: (Float, Float, Float, Float, Float) -> Unit,
@@ -566,6 +567,7 @@ private fun CollagePhotoFrameContent(
                         1.dp,
                         MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                     )
+                    .testTag("collage-frame-viewport")
                     .pointerInput(index, photo.bitmap) {
                         detectTransformGestures { _, pan, zoom, _ ->
                             onGesture(
@@ -612,7 +614,7 @@ private fun CollagePhotoFrameContent(
 }
 
 @Composable
-private fun CollageEditorBar(collage: CollageState, onPrint: () -> Unit) {
+internal fun CollageEditorBar(collage: CollageState, onPrint: () -> Unit) {
     Surface(tonalElevation = 3.dp, color = MaterialTheme.colorScheme.surface) {
         Row(
             modifier = Modifier
@@ -649,7 +651,7 @@ private fun CollageEditorBar(collage: CollageState, onPrint: () -> Unit) {
 }
 
 @Composable
-private fun CollagePreviewBar(
+internal fun CollagePreviewBar(
     collage: CollageState,
     printer: PrinterUiState,
     onPrint: () -> Unit,
@@ -703,7 +705,7 @@ private fun CollagePreviewBar(
 }
 
 @Composable
-private fun CollageEditorContent(
+internal fun CollageEditorContent(
     collage: CollageState,
     error: String?,
     connected: Boolean,
@@ -752,6 +754,7 @@ private fun CollageEditorContent(
                         1.dp,
                         MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                     )
+                    .testTag("collage-preview")
                     .pointerInput(collage.layout.id, collage.borders, collage.photos.size) {
                         detectTransformGestures { centroid, pan, zoom, _ ->
                             val nx = centroid.x / size.width
@@ -811,6 +814,7 @@ private fun CollageEditorContent(
             Checkbox(
                 checked = collage.borders,
                 onCheckedChange = onBorders,
+                modifier = Modifier.testTag("collage-borders"),
             )
             Text("Borders", style = MaterialTheme.typography.bodyMedium)
         }
@@ -838,7 +842,7 @@ private fun CollageEditorContent(
 }
 
 @Composable
-private fun LayoutOption(
+internal fun LayoutOption(
     layout: CollageLayout,
     selected: Boolean,
     onClick: () -> Unit,
@@ -854,6 +858,7 @@ private fun LayoutOption(
                 if (selected) 2.dp else 1.dp,
                 if (selected) accent else MaterialTheme.colorScheme.outline,
             )
+            .testTag("layout-${layout.id}")
             .clickable(
                 role = Role.Button,
                 onClickLabel = layout.name,
@@ -877,7 +882,7 @@ private fun LayoutOption(
 }
 
 @Composable
-private fun CollagePrintPreviewContent(
+internal fun CollagePrintPreviewContent(
     collage: CollageState,
     printer: PrinterUiState,
     error: String?,

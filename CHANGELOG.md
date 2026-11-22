@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Roborazzi + Robolectric screenshot and interaction tests for the collage
+  editor, frame editor, and print preview, with committed golden images.
+
 ## [0.1.3] - 2026-11-22
 
 ### Added

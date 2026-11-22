@@ -153,8 +153,17 @@ Without those variables, `assembleRelease` falls back to debug signing.
 ```
 
 Unit tests cover frame encoding/decoding, checksums, stream resynchronisation,
-JSON-RPC shapes, chunking, job parsing, and the Fit/Fill/zoom math. The image
-pipeline has instrumented tests; run them on an emulator or phone with:
+JSON-RPC shapes, chunking, job parsing, and the Fit/Fill/zoom math. The collage
+UI is covered by Roborazzi + Robolectric screenshot and interaction tests that
+run on the JVM without an emulator:
+
+```sh
+./gradlew :app:verifyRoborazziDebug   # compare against committed goldens
+./gradlew :app:recordRoborazziDebug   # update the goldens after UI changes
+```
+
+Goldens live in `app/src/test/screenshots`. The image pipeline also has
+instrumented tests; run them on an emulator or phone with:
 
 ```sh
 ./gradlew :app:connectedDebugAndroidTest
