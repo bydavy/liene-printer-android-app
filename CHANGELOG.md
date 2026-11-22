@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Collage mode for 2–4 photos: multi-photo share auto-opens it, with vertical,
+  horizontal, focused, and grid layouts, live preview, and a print-preview
+  screen for copies and final printing.
+
 ## [0.1.2] - 2026-11-22
 
 ### Changed

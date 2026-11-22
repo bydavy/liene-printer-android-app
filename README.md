@@ -38,9 +38,14 @@ Liene/Hannto models remain untested.
 
 ![Liene Android app](docs/app.png)
 
+![Collage editor](docs/collage.png)
+
 ## Features
 
 - **Share target**: from Google Photos or any gallery, tap Share → **Liene**.
+  Share several photos at once to jump straight into a collage.
+- **Collage**: pick 2–4 photos, choose vertical, horizontal, focused, or grid
+  layouts, then print from a dedicated preview screen with copies.
 - **Mobile-first editor**: rotate, Fit/Fill framing, pinch-to-zoom and drag,
   2:3 print preview with white borders for Fit.
 - **Final confirmation**: a full 2:3 preview and summary before any print job
@@ -90,7 +95,9 @@ not for Play Store distribution.
 2. Open the app and tap **Connect**, granting Nearby devices access.
 3. From a gallery app, share a photo to **Liene** (or use **Choose** in the
    app), frame it, and tap **Print**.
-4. Keep the printer powered on while the job uploads and prints.
+4. For a collage, tap **Collage** and select 2–4 photos — or share several
+   photos at once. Pick a layout, tap **Print**, then choose copies and print.
+5. Keep the printer powered on while the job uploads and prints.
 
 ## Build
 

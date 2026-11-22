@@ -21,7 +21,9 @@ class MainActivity : ComponentActivity() {
         // original SEND intent then, or the editor would reload the photo and
         // discard rotation/crop/zoom. After process death the ViewModel is
         // empty, so the intent is handled again.
-        if (savedInstanceState == null || viewModel.editor.value.source == null) {
+        if (savedInstanceState == null ||
+            (viewModel.editor.value.source == null && viewModel.collage.value == null)
+        ) {
             handleShareIntent(intent)
         }
         setContent {
@@ -38,21 +40,41 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleShareIntent(intent: Intent?) {
-        if (intent?.action != Intent.ACTION_SEND) return
+        val action = intent?.action ?: return
+        if (action != Intent.ACTION_SEND && action != Intent.ACTION_SEND_MULTIPLE) return
         if (intent.type?.startsWith("image/") != true) return
-        // Gallery apps normally put the image in EXTRA_STREAM, but some use
-        // ClipData (and a few older ones only set the intent data URI).
-        val uri = intent.clipData
-            ?.takeIf { it.itemCount > 0 }
-            ?.getItemAt(0)
-            ?.uri
-            ?: IntentCompat.getParcelableExtra(
+
+        val uris = sharedUris(intent)
+        when {
+            uris.size >= 2 -> viewModel.loadCollage(uris)
+            uris.size == 1 -> viewModel.loadImage(uris.first())
+        }
+    }
+
+    /**
+     * Gallery apps normally use EXTRA_STREAM, but some use ClipData (and a few
+     * older ones only set the intent data URI).
+     */
+    private fun sharedUris(intent: Intent): List<Uri> {
+        val fromClip = intent.clipData
+            ?.let { clip -> (0 until clip.itemCount).mapNotNull { clip.getItemAt(it)?.uri } }
+            .orEmpty()
+        if (fromClip.isNotEmpty()) return fromClip.distinct()
+
+        if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
+            val multiple = IntentCompat.getParcelableArrayListExtra(
                 intent,
                 Intent.EXTRA_STREAM,
                 Uri::class.java,
             )
-            ?: intent.data
-            ?: return
-        viewModel.loadImage(uri)
+            if (!multiple.isNullOrEmpty()) return multiple.distinct()
+        }
+
+        val single = IntentCompat.getParcelableExtra(
+            intent,
+            Intent.EXTRA_STREAM,
+            Uri::class.java,
+        ) ?: intent.data
+        return listOfNotNull(single)
     }
 }

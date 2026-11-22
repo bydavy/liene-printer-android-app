@@ -1,16 +1,21 @@
 package io.github.bydavy.liene
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.bydavy.liene.image.CollageLayout
 import io.github.bydavy.liene.image.EditorState
 import io.github.bydavy.liene.image.Fit
 import io.github.bydavy.liene.image.ImageStore
 import io.github.bydavy.liene.image.PRINT_HEIGHT
 import io.github.bydavy.liene.image.PRINT_WIDTH
 import io.github.bydavy.liene.image.applyGesture
+import io.github.bydavy.liene.image.collageLayoutsFor
 import io.github.bydavy.liene.image.prepareJpeg
+import io.github.bydavy.liene.image.renderCollage
+import io.github.bydavy.liene.image.renderCollageJpeg
 import io.github.bydavy.liene.printer.PrintService
 import io.github.bydavy.liene.printer.PrinterUiState
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +28,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+enum class CollageStage {
+    Editor,
+    PrintPreview,
+}
+
+data class CollageState(
+    val photos: List<Bitmap>,
+    val preview: Bitmap,
+    val layouts: List<CollageLayout>,
+    val layout: CollageLayout,
+    val copies: Int = 1,
+    val preparing: Boolean = false,
+    val error: String? = null,
+)
+
 class LieneViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = (application as LieneApplication).repository
     val printer: StateFlow<PrinterUiState> = repository.state
@@ -30,10 +50,21 @@ class LieneViewModel(application: Application) : AndroidViewModel(application) {
     private val _editor = MutableStateFlow(EditorState())
     val editor: StateFlow<EditorState> = _editor.asStateFlow()
 
+    private val _collage = MutableStateFlow<CollageState?>(null)
+    val collage: StateFlow<CollageState?> = _collage.asStateFlow()
+
+    private val _collageStage = MutableStateFlow(CollageStage.Editor)
+    val collageStage: StateFlow<CollageStage> = _collageStage.asStateFlow()
+
+    private val _collageLoading = MutableStateFlow(false)
+    val collageLoading: StateFlow<Boolean> = _collageLoading.asStateFlow()
+
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
     private var previewJob: Job? = null
+    private var collagePreviewJob: Job? = null
+    private var collageLoadJob: Job? = null
 
     fun connect() = repository.connect()
     fun disconnect() = repository.disconnect()
@@ -44,6 +75,7 @@ class LieneViewModel(application: Application) : AndroidViewModel(application) {
     fun dismissError() {
         _message.value = null
         _editor.update { it.copy(error = null) }
+        _collage.update { it?.copy(error = null) }
         repository.clearError()
     }
 
@@ -55,6 +87,11 @@ class LieneViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadImage(uri: Uri) {
         if (_editor.value.loading) return
+        _collage.value = null
+        _collageStage.value = CollageStage.Editor
+        _collageLoading.value = false
+        collagePreviewJob?.cancel()
+        collageLoadJob?.cancel()
         _editor.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
             try {
@@ -80,6 +117,120 @@ class LieneViewModel(application: Application) : AndroidViewModel(application) {
                         error = e.message ?: "Could not load that photo",
                     )
                 }
+            }
+        }
+    }
+
+    fun loadCollage(uris: List<Uri>) {
+        if (uris.size < 2) {
+            _message.value = "Select at least two photos for a collage."
+            return
+        }
+        val selected = uris.take(4)
+        collageLoadJob?.cancel()
+        collagePreviewJob?.cancel()
+        _collage.value = null
+        _collageStage.value = CollageStage.Editor
+        _collageLoading.value = true
+        _editor.update { it.copy(loading = false, error = null) }
+
+        collageLoadJob = viewModelScope.launch {
+            try {
+                val photos = withContext(Dispatchers.IO) {
+                    selected.map { uri ->
+                        val (file, _) = ImageStore.copyToCache(getApplication(), uri)
+                        try {
+                            ImageStore.loadOriented(file, maxDimension = 1600)
+                        } finally {
+                            file.delete()
+                        }
+                    }
+                }
+                if (photos.size < 2) {
+                    throw IllegalArgumentException("Select at least two readable photos")
+                }
+                val layouts = collageLayoutsFor(photos.size)
+                val layout = layouts.first()
+                val preview = withContext(Dispatchers.IO) {
+                    renderCollage(photos, layout, 600, 900)
+                }
+                _collage.value = CollageState(
+                    photos = photos,
+                    preview = preview,
+                    layouts = layouts,
+                    layout = layout,
+                )
+                _collageStage.value = CollageStage.Editor
+            } catch (e: Exception) {
+                _message.value = e.message ?: "Could not build the collage"
+            } finally {
+                _collageLoading.value = false
+            }
+        }
+    }
+
+    fun selectCollageLayout(layout: CollageLayout) {
+        val state = _collage.value ?: return
+        if (state.layout.id == layout.id) return
+        _collage.value = state.copy(layout = layout, error = null)
+        collagePreviewJob?.cancel()
+        collagePreviewJob = viewModelScope.launch {
+            val preview = withContext(Dispatchers.IO) {
+                renderCollage(state.photos, layout, 600, 900)
+            }
+            _collage.update { current ->
+                if (current?.layout?.id == layout.id) {
+                    current.copy(preview = preview)
+                } else {
+                    current
+                }
+            }
+        }
+    }
+
+    fun setCollageCopies(copies: Int) {
+        _collage.update { it?.copy(copies = copies.coerceIn(1, 9)) }
+    }
+
+    fun openCollagePreview() {
+        if (_collage.value != null) {
+            _collageStage.value = CollageStage.PrintPreview
+        }
+    }
+
+    fun backToCollageEditor() {
+        if (_collage.value != null) {
+            _collageStage.value = CollageStage.Editor
+        }
+    }
+
+    fun closeCollage() {
+        collageLoadJob?.cancel()
+        collagePreviewJob?.cancel()
+        _collageLoading.value = false
+        _collage.value = null
+        _collageStage.value = CollageStage.Editor
+    }
+
+    fun startCollagePrint() {
+        val state = _collage.value ?: return
+        if (state.preparing || printer.value.busy) return
+        _collage.update { it?.copy(preparing = true, error = null) }
+        viewModelScope.launch {
+            try {
+                val jpeg = withContext(Dispatchers.IO) {
+                    renderCollageJpeg(state.photos, state.layout)
+                }
+                val file = File(getApplication<Application>().cacheDir, "liene-collage.jpg")
+                withContext(Dispatchers.IO) { file.writeBytes(jpeg) }
+                repository.clearJob()
+                PrintService.start(getApplication(), file, state.copies)
+            } catch (e: Exception) {
+                _collage.update {
+                    it?.copy(error = e.message ?: "Could not prepare the collage")
+                }
+            } finally {
+                _collage.update { it?.copy(preparing = false) }
             }
         }
     }

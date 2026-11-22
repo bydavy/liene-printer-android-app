@@ -6,12 +6,15 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +30,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -54,10 +59,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,7 +75,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.bydavy.liene.CollageStage
+import io.github.bydavy.liene.CollageState
 import io.github.bydavy.liene.LieneViewModel
+import io.github.bydavy.liene.image.CollageLayout
 import io.github.bydavy.liene.image.EditorState
 import io.github.bydavy.liene.image.Fit
 import io.github.bydavy.liene.image.PRINT_HEIGHT
@@ -85,6 +96,9 @@ import java.util.Locale
 fun MainScreen(viewModel: LieneViewModel) {
     val printer by viewModel.printer.collectAsStateWithLifecycle()
     val editor by viewModel.editor.collectAsStateWithLifecycle()
+    val collage by viewModel.collage.collectAsStateWithLifecycle()
+    val collageStage by viewModel.collageStage.collectAsStateWithLifecycle()
+    val collageLoading by viewModel.collageLoading.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -92,6 +106,16 @@ fun MainScreen(viewModel: LieneViewModel) {
         ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
         uri?.let(viewModel::loadImage)
+    }
+
+    val pickCollage = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(4),
+    ) { uris ->
+        when {
+            uris.size >= 2 -> viewModel.loadCollage(uris)
+            uris.size == 1 -> viewModel.loadImage(uris.first())
+            else -> viewModel.reportError("Select 2–4 photos to build a collage.")
+        }
     }
 
     val requestBluetooth = rememberLauncherForActivityResult(
@@ -107,12 +131,14 @@ fun MainScreen(viewModel: LieneViewModel) {
         }
     }
 
+    var pendingPrint by remember { mutableStateOf<(() -> Unit)?>(null) }
     val requestNotifications = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) {
         // Even if notifications are denied, the foreground service can still
         // finish the print; the in-app progress remains visible while open.
-        viewModel.startPrint()
+        pendingPrint?.invoke()
+        pendingPrint = null
     }
 
     fun connect() {
@@ -128,16 +154,26 @@ fun MainScreen(viewModel: LieneViewModel) {
         }
     }
 
-    fun print() {
+    fun printAction(action: () -> Unit) {
         val needsNotificationPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.POST_NOTIFICATIONS,
             ) != PackageManager.PERMISSION_GRANTED
         if (needsNotificationPermission) {
+            pendingPrint = action
             requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            viewModel.startPrint()
+            action()
+        }
+    }
+
+    val collageActive = collage != null || collageLoading
+    BackHandler(enabled = collageActive) {
+        if (collageStage == CollageStage.PrintPreview) {
+            viewModel.backToCollageEditor()
+        } else {
+            viewModel.closeCollage()
         }
     }
 
@@ -150,22 +186,56 @@ fun MainScreen(viewModel: LieneViewModel) {
         !hasAlert
     val error = editor.error ?: message ?: printer.error
     var confirmPrint by remember { mutableStateOf(false) }
+    val activeCollage = collage
+    val goBack = {
+        if (collageStage == CollageStage.PrintPreview) {
+            viewModel.backToCollageEditor()
+        } else {
+            viewModel.closeCollage()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    if (collageActive) {
+                        TextButton(onClick = goBack) { Text("Back") }
+                    }
+                },
                 title = {
-                    Column {
-                        Text(
-                            "Liene",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            "Photo printer",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    if (collageActive) {
+                        Column {
+                            Text(
+                                if (collageStage == CollageStage.PrintPreview) {
+                                    "Print preview"
+                                } else {
+                                    "Collage"
+                                },
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                activeCollage?.let {
+                                    "${it.photos.size} photos · ${it.layout.name}"
+                                } ?: "Preparing…",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        Column {
+                            Text(
+                                "Liene",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                "Photo printer",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -180,89 +250,501 @@ fun MainScreen(viewModel: LieneViewModel) {
             )
         },
         bottomBar = {
-            PrintBar(
-                editor = editor,
-                printer = printer,
-                canPrint = canPrint,
-                onPrint = { confirmPrint = true },
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            if (error != null) {
-                ErrorBanner(
-                    message = error,
-                    showResume = connected,
-                    onDismiss = viewModel::dismissError,
-                    onResume = viewModel::resumePrinter,
+            when {
+                collageLoading -> CollageLoadingBar()
+                activeCollage != null && collageStage == CollageStage.PrintPreview ->
+                    CollagePreviewBar(
+                        collage = activeCollage,
+                        printer = printer,
+                        onPrint = {
+                            printAction { viewModel.startCollagePrint() }
+                        },
+                    )
+
+                activeCollage != null -> CollageEditorBar(
+                    collage = activeCollage,
+                    onPrint = viewModel::openCollagePreview,
+                )
+
+                else -> PrintBar(
+                    editor = editor,
+                    printer = printer,
+                    canPrint = canPrint,
+                    onPrint = { confirmPrint = true },
                 )
             }
-
-            PhotoEditorCard(
-                editor = editor,
-                onChoose = {
-                    pickPhoto.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                    )
-                },
-                onRotate = { viewModel.rotate(clockwise = true) },
-                onReset = viewModel::resetFraming,
-                onFit = viewModel::setFit,
-                onZoom = viewModel::setZoom,
-                onTransform = viewModel::applyTransform,
-            )
-
-            PrintSettingsCard(
-                editor = editor,
-                onCopies = viewModel::setCopies,
-            )
-
-            PrinterCard(
-                printer = printer,
-                onConnect = ::connect,
-                onDisconnect = viewModel::disconnect,
-                onRefresh = viewModel::refresh,
-                onResume = viewModel::resumePrinter,
-                onSettings = { openBluetoothSettings(context) },
-            )
-
-            JobCard(
-                printer = printer,
-                onCancel = viewModel::cancelJob,
-                onDismiss = viewModel::clearCompletedJob,
-            )
-
-            DiagnosticsCard(log = printer.log)
-
-            Text(
-                "Unofficial app · not affiliated with Liene or Hannto",
+        },
+    ) { innerPadding ->
+        when {
+            collageLoading -> Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp, bottom = 8.dp),
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    .padding(innerPadding)
+                    .fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CircularProgressIndicator()
+                    Text("Preparing collage…")
+                }
+            }
+
+            activeCollage != null && collageStage == CollageStage.PrintPreview ->
+                CollagePrintPreviewContent(
+                    collage = activeCollage,
+                    printer = printer,
+                    error = activeCollage.error ?: message ?: printer.error,
+                    onCopies = viewModel::setCollageCopies,
+                    onConnect = ::connect,
+                    onDisconnect = viewModel::disconnect,
+                    onRefresh = viewModel::refresh,
+                    onResume = viewModel::resumePrinter,
+                    onSettings = { openBluetoothSettings(context) },
+                    onDismissError = viewModel::dismissError,
+                    onCancelJob = viewModel::cancelJob,
+                    onDismissJob = viewModel::clearCompletedJob,
+                    modifier = Modifier.padding(innerPadding),
+                )
+
+            activeCollage != null -> CollageEditorContent(
+                collage = activeCollage,
+                error = activeCollage.error ?: message ?: printer.error,
+                connected = connected,
+                onDismissError = viewModel::dismissError,
+                onResume = viewModel::resumePrinter,
+                onLayout = viewModel::selectCollageLayout,
+                modifier = Modifier.padding(innerPadding),
             )
+
+            else -> Column(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (error != null) {
+                    ErrorBanner(
+                        message = error,
+                        showResume = connected,
+                        onDismiss = viewModel::dismissError,
+                        onResume = viewModel::resumePrinter,
+                    )
+                }
+
+                PhotoEditorCard(
+                    editor = editor,
+                    onChoose = {
+                        pickPhoto.launch(
+                            PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly,
+                            ),
+                        )
+                    },
+                    onCollage = {
+                        pickCollage.launch(
+                            PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly,
+                            ),
+                        )
+                    },
+                    onRotate = { viewModel.rotate(clockwise = true) },
+                    onReset = viewModel::resetFraming,
+                    onFit = viewModel::setFit,
+                    onZoom = viewModel::setZoom,
+                    onTransform = viewModel::applyTransform,
+                )
+
+                PrintSettingsCard(
+                    editor = editor,
+                    onCopies = viewModel::setCopies,
+                )
+
+                PrinterCard(
+                    printer = printer,
+                    onConnect = ::connect,
+                    onDisconnect = viewModel::disconnect,
+                    onRefresh = viewModel::refresh,
+                    onResume = viewModel::resumePrinter,
+                    onSettings = { openBluetoothSettings(context) },
+                )
+
+                JobCard(
+                    printer = printer,
+                    onCancel = viewModel::cancelJob,
+                    onDismiss = viewModel::clearCompletedJob,
+                )
+
+                DiagnosticsCard(log = printer.log)
+
+                Text(
+                    "Unofficial app · not affiliated with Liene or Hannto",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp, bottom = 8.dp),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 
-    if (confirmPrint && editor.source != null) {
+    if (confirmPrint && collage == null && editor.source != null) {
         PrintConfirmationDialog(
             editor = editor,
             printer = printer,
             onDismiss = { confirmPrint = false },
             onConfirm = {
                 confirmPrint = false
-                print()
+                printAction { viewModel.startPrint() }
             },
         )
+    }
+}
+
+@Composable
+private fun CollageLoadingBar() {
+    Surface(tonalElevation = 3.dp, color = MaterialTheme.colorScheme.surface) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Preparing collage…", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun CollageEditorBar(collage: CollageState, onPrint: () -> Unit) {
+    Surface(tonalElevation = 3.dp, color = MaterialTheme.colorScheme.surface) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "${collage.photos.size} photos · ${collage.layout.name}",
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Text(
+                    "$PRINT_WIDTH×$PRINT_HEIGHT px · 2×3 in",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Button(
+                onClick = onPrint,
+                enabled = !collage.preparing,
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp),
+            ) {
+                Text(
+                    "Print",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CollagePreviewBar(
+    collage: CollageState,
+    printer: PrinterUiState,
+    onPrint: () -> Unit,
+) {
+    val connected = printer.connection.connected
+    val ready = connected &&
+        !printer.busy &&
+        printer.status?.hasAlert != true &&
+        !collage.preparing
+    val reason = when {
+        !connected -> "Connect the printer to print"
+        printer.status?.hasAlert == true -> "Resolve the printer alert first"
+        printer.busy -> "Printing…"
+        collage.preparing -> "Preparing…"
+        else -> "Ready"
+    }
+    Surface(tonalElevation = 3.dp, color = MaterialTheme.colorScheme.surface) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "${collage.copies} ${if (collage.copies == 1) "copy" else "copies"} · " +
+                        "$PRINT_WIDTH×$PRINT_HEIGHT",
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Text(
+                    reason,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Button(
+                onClick = onPrint,
+                enabled = ready,
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp),
+            ) {
+                Text(
+                    if (collage.preparing) "Preparing…" else "Print",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CollageEditorContent(
+    collage: CollageState,
+    error: String?,
+    connected: Boolean,
+    onDismissError: () -> Unit,
+    onResume: () -> Unit,
+    onLayout: (CollageLayout) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (error != null) {
+            ErrorBanner(
+                message = error,
+                showResume = connected,
+                onDismiss = onDismissError,
+                onResume = onResume,
+            )
+        }
+
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                bitmap = collage.preview.asImageBitmap(),
+                contentDescription = "Collage preview",
+                modifier = Modifier
+                    .fillMaxWidth(0.72f)
+                    .aspectRatio(2f / 3f)
+                    .background(Color.White)
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    ),
+                contentScale = ContentScale.Fit,
+            )
+        }
+
+        Text(
+            "Layout",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(collage.layouts, key = { it.id }) { layout ->
+                LayoutOption(
+                    layout = layout,
+                    selected = layout.id == collage.layout.id,
+                    onClick = { onLayout(layout) },
+                )
+            }
+        }
+        Text(
+            "Pick a layout, then print.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun LayoutOption(
+    layout: CollageLayout,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val cellColor = if (selected) {
+        accent.copy(alpha = 0.35f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+    Column(
+        modifier = Modifier
+            .width(86.dp)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(2f / 3f)
+                .background(Color.White)
+                .border(
+                    if (selected) 2.dp else 1.dp,
+                    if (selected) accent else MaterialTheme.colorScheme.outline,
+                )
+                .padding(4.dp),
+        ) {
+            Canvas(Modifier.fillMaxSize()) {
+                layout.cells.forEach { cell ->
+                    drawRect(
+                        color = cellColor,
+                        topLeft = Offset(cell.left * size.width, cell.top * size.height),
+                        size = Size(
+                            (cell.right - cell.left) * size.width,
+                            (cell.bottom - cell.top) * size.height,
+                        ),
+                    )
+                }
+            }
+        }
+        Text(
+            layout.name,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun CollagePrintPreviewContent(
+    collage: CollageState,
+    printer: PrinterUiState,
+    error: String?,
+    onCopies: (Int) -> Unit,
+    onConnect: () -> Unit,
+    onDisconnect: () -> Unit,
+    onRefresh: () -> Unit,
+    onResume: () -> Unit,
+    onSettings: () -> Unit,
+    onDismissError: () -> Unit,
+    onCancelJob: () -> Unit,
+    onDismissJob: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (error != null) {
+            ErrorBanner(
+                message = error,
+                showResume = printer.connection.connected,
+                onDismiss = onDismissError,
+                onResume = onResume,
+            )
+        }
+
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                bitmap = collage.preview.asImageBitmap(),
+                contentDescription = "Collage print preview",
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .aspectRatio(2f / 3f)
+                    .background(Color.White)
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    ),
+                contentScale = ContentScale.Fit,
+            )
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            ),
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    "Prints",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Copies", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.weight(1f))
+                    OutlinedButton(
+                        onClick = { onCopies(collage.copies - 1) },
+                        enabled = collage.copies > 1,
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.size(40.dp),
+                    ) { Text("−") }
+                    Text(
+                        collage.copies.toString(),
+                        modifier = Modifier.width(36.dp),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    OutlinedButton(
+                        onClick = { onCopies(collage.copies + 1) },
+                        enabled = collage.copies < 9,
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier.size(40.dp),
+                    ) { Text("+") }
+                }
+                Text(
+                    "$PRINT_WIDTH × $PRINT_HEIGHT px · ${collage.layout.name}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        PrinterCard(
+            printer = printer,
+            onConnect = onConnect,
+            onDisconnect = onDisconnect,
+            onRefresh = onRefresh,
+            onResume = onResume,
+            onSettings = onSettings,
+        )
+
+        JobCard(
+            printer = printer,
+            onCancel = onCancelJob,
+            onDismiss = onDismissJob,
+        )
+
+        DiagnosticsCard(log = printer.log)
     }
 }
 
@@ -414,6 +896,7 @@ private fun PrintPreview(editor: EditorState, modifier: Modifier) {
 private fun PhotoEditorCard(
     editor: EditorState,
     onChoose: () -> Unit,
+    onCollage: () -> Unit,
     onRotate: () -> Unit,
     onReset: () -> Unit,
     onFit: (Fit) -> Unit,
@@ -436,6 +919,7 @@ private fun PhotoEditorCard(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Spacer(Modifier.weight(1f))
+                TextButton(onClick = onCollage) { Text("Collage") }
                 TextButton(onClick = onChoose) { Text("Choose") }
             }
 

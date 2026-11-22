@@ -50,7 +50,7 @@ fun prepareJpeg(
                 RectF(rect.left, rect.top, rect.left + rect.width, rect.top + rect.height),
                 paint,
             )
-            return encodeJpegWithinBudget(output)
+            return encodeJpeg(output)
         } finally {
             output.recycle()
         }
@@ -59,7 +59,7 @@ fun prepareJpeg(
     }
 }
 
-private fun encodeJpegWithinBudget(bitmap: Bitmap): ByteArray {
+internal fun encodeJpeg(bitmap: Bitmap): ByteArray {
     var quality = 92
     while (true) {
         val output = ByteArrayOutputStream()
