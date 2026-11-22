@@ -7,7 +7,8 @@ import androidx.lifecycle.viewModelScope
 import io.github.bydavy.liene.image.EditorState
 import io.github.bydavy.liene.image.Fit
 import io.github.bydavy.liene.image.ImageStore
-import io.github.bydavy.liene.image.Quality
+import io.github.bydavy.liene.image.PRINT_HEIGHT
+import io.github.bydavy.liene.image.PRINT_WIDTH
 import io.github.bydavy.liene.image.applyGesture
 import io.github.bydavy.liene.image.prepareJpeg
 import io.github.bydavy.liene.printer.PrintService
@@ -121,10 +122,6 @@ class LieneViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun setQuality(quality: Quality) {
-        _editor.update { it.copy(quality = quality) }
-    }
-
     fun setCopies(copies: Int) {
         _editor.update { it.copy(copies = copies.coerceIn(1, 9)) }
     }
@@ -177,8 +174,8 @@ class LieneViewModel(application: Application) : AndroidViewModel(application) {
                         zoom = state.zoom,
                         panX = state.panX,
                         panY = state.panY,
-                        width = state.quality.width,
-                        height = state.quality.height,
+                        width = PRINT_WIDTH,
+                        height = PRINT_HEIGHT,
                     )
                 }
                 val file = File(getApplication<Application>().cacheDir, "liene-print.jpg")

@@ -20,7 +20,7 @@ app required.
 The main motivation is the **share-to-print flow**. Browse and edit photos in
 whatever gallery app you already use — Google Photos, your camera roll, or any
 third-party gallery — then tap Share → **Liene**. The app takes over only the
-print-specific part: 2:3 framing, quality, copies, printer status, and upload.
+print-specific part: 2:3 framing, copies, printer status, and upload.
 
 The official Liene app's built-in gallery experience is poor: finding and
 selecting a photo is slower and more awkward than using the gallery app you
@@ -39,8 +39,10 @@ from Android still needs hardware confirmation**. Please report results.
 - **Share target**: from Google Photos or any gallery, tap Share → **Liene**.
 - **Mobile-first editor**: rotate, Fit/Fill framing, pinch-to-zoom and drag,
   2:3 print preview with white borders for Fit.
-- **Print settings**: copies 1–9, 600×900 or 1200×1800 output, JPEG compressed
-  to the printer's ~1 MiB transfer target.
+- **Final confirmation**: a full 2:3 preview and summary before any print job
+  starts.
+- **Print settings**: copies 1–9, fixed 1200×1800 output, JPEG compressed to
+  the printer's ~1 MiB transfer target.
 - **Printer status**: state, battery, alerts, model/serial/firmware, and
   resume/cancel.
 - **Background printing**: a foreground service keeps the job alive and shows
@@ -106,7 +108,7 @@ export LIENE_KEYSTORE_PATH=/path/to/liene.jks
 export LIENE_KEYSTORE_PASSWORD=...
 export LIENE_KEY_ALIAS=...
 export LIENE_KEY_PASSWORD=...
-./gradlew :app:assembleRelease -PappVersionName=0.1.0 -PappVersionCode=1
+./gradlew :app:assembleRelease -PappVersionName=0.1.1 -PappVersionCode=2
 ```
 
 Without those variables, `assembleRelease` falls back to debug signing.
@@ -127,7 +129,7 @@ Without those variables, `assembleRelease` falls back to debug signing.
   multi-minute print, so `PrintService` owns the job and posts progress.
 - **Image pipeline**: shared `content://` URIs are copied to cache, EXIF
   orientation is applied, the image is downsampled for memory, and the final
-  JPEG is rendered at 600×900 or 1200×1800 before upload.
+  JPEG is rendered at 1200×1800 before upload.
 
 ## Tests
 

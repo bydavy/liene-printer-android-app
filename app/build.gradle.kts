@@ -5,8 +5,8 @@ plugins {
 }
 
 val keystorePath = System.getenv("LIENE_KEYSTORE_PATH")
-val appVersionName = (findProperty("appVersionName") as String?) ?: "0.1.0"
-val appVersionCode = ((findProperty("appVersionCode") as String?) ?: "1").toIntOrNull() ?: 1
+val appVersionName = (findProperty("appVersionName") as String?) ?: "0.1.1"
+val appVersionCode = ((findProperty("appVersionCode") as String?) ?: "2").toIntOrNull() ?: 2
 
 android {
     namespace = "io.github.bydavy.liene"

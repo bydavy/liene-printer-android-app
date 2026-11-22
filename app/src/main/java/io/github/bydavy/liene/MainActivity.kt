@@ -17,7 +17,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        handleShareIntent(intent)
+        // A configuration change recreates the activity. Do not reprocess the
+        // original SEND intent then, or the editor would reload the photo and
+        // discard rotation/crop/zoom. After process death the ViewModel is
+        // empty, so the intent is handled again.
+        if (savedInstanceState == null || viewModel.editor.value.source == null) {
+            handleShareIntent(intent)
+        }
         setContent {
             LieneTheme {
                 MainScreen(viewModel)

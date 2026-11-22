@@ -12,10 +12,9 @@ enum class Fit(val label: String) {
     Cover("Fill"),
 }
 
-enum class Quality(val width: Int, val height: Int, val label: String) {
-    Native(600, 900, "600×900"),
-    High(1200, 1800, "1200×1800"),
-}
+/** 2× the printer's native 300 dpi output. */
+const val PRINT_WIDTH = 1200
+const val PRINT_HEIGHT = 1800
 
 data class EditorState(
     val source: Bitmap? = null,
@@ -27,7 +26,6 @@ data class EditorState(
     val panX: Float = 0f,
     val panY: Float = 0f,
     val copies: Int = 1,
-    val quality: Quality = Quality.High,
     val loading: Boolean = false,
     val preparing: Boolean = false,
     val error: String? = null,

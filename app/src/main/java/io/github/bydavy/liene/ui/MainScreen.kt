@@ -31,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -70,9 +71,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.bydavy.liene.LieneViewModel
 import io.github.bydavy.liene.image.EditorState
 import io.github.bydavy.liene.image.Fit
-import io.github.bydavy.liene.image.Quality
+import io.github.bydavy.liene.image.PRINT_HEIGHT
+import io.github.bydavy.liene.image.PRINT_WIDTH
 import io.github.bydavy.liene.image.computeDrawRect
 import io.github.bydavy.liene.printer.PrinterUiState
+import io.github.bydavy.liene.printer.batteryLabel
+import io.github.bydavy.liene.printer.isBatteryLow
 import io.github.bydavy.liene.printer.jobStateLabel
 import kotlin.math.roundToInt
 import java.util.Locale
@@ -146,6 +150,7 @@ fun MainScreen(viewModel: LieneViewModel) {
         !editor.preparing &&
         !hasAlert
     val error = editor.error ?: message ?: printer.error
+    var confirmPrint by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -180,7 +185,7 @@ fun MainScreen(viewModel: LieneViewModel) {
                 editor = editor,
                 printer = printer,
                 canPrint = canPrint,
-                onPrint = { print() },
+                onPrint = { confirmPrint = true },
             )
         },
     ) { innerPadding ->
@@ -218,7 +223,6 @@ fun MainScreen(viewModel: LieneViewModel) {
             PrintSettingsCard(
                 editor = editor,
                 onCopies = viewModel::setCopies,
-                onQuality = viewModel::setQuality,
             )
 
             PrinterCard(
@@ -247,6 +251,164 @@ fun MainScreen(viewModel: LieneViewModel) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+
+    if (confirmPrint && editor.source != null) {
+        PrintConfirmationDialog(
+            editor = editor,
+            printer = printer,
+            onDismiss = { confirmPrint = false },
+            onConfirm = {
+                confirmPrint = false
+                print()
+            },
+        )
+    }
+}
+
+@Composable
+private fun PrintConfirmationDialog(
+    editor: EditorState,
+    printer: PrinterUiState,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val battery = printer.status?.battery
+    val canConfirm = printer.connection.connected &&
+        !printer.busy &&
+        printer.status?.hasAlert != true
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Print this photo?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    PrintPreview(
+                        editor = editor,
+                        modifier = Modifier
+                            .width(170.dp)
+                            .aspectRatio(2f / 3f),
+                    )
+                }
+                Text(
+                    "Final 2×3 composition",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                SummaryRow("Resolution", "$PRINT_WIDTH × $PRINT_HEIGHT px")
+                SummaryRow(
+                    "Framing",
+                    if (editor.fit == Fit.Contain) "Fit (white borders)" else "Fill (no borders)",
+                )
+                SummaryRow("Copies", editor.copies.toString())
+                printer.connection.name?.let { SummaryRow("Printer", it) }
+                if (battery != null && isBatteryLow(battery)) {
+                    Text(
+                        if (battery == 0) {
+                            "Printer battery is empty. Connect power before printing."
+                        } else {
+                            "Printer battery is low. Connect power for a reliable print."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                if (!canConfirm) {
+                    Text(
+                        "The printer is no longer ready.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm, enabled = canConfirm) {
+                Text("Print now")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+@Composable
+private fun SummaryRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            label,
+            modifier = Modifier.weight(0.4f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            value,
+            modifier = Modifier.weight(0.6f),
+            textAlign = TextAlign.End,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+@Composable
+private fun PrintPreview(editor: EditorState, modifier: Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.White)
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                RoundedCornerShape(8.dp),
+            ),
+    ) {
+        val preview = editor.preview
+        if (preview == null) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(24.dp),
+                strokeWidth = 2.dp,
+            )
+        } else {
+            val image = remember(preview) { preview.asImageBitmap() }
+            Canvas(Modifier.fillMaxSize()) {
+                val rect = computeDrawRect(
+                    sourceWidth = image.width,
+                    sourceHeight = image.height,
+                    canvasWidth = size.width,
+                    canvasHeight = size.height,
+                    fit = editor.fit,
+                    zoom = editor.zoom,
+                    panX = editor.panX,
+                    panY = editor.panY,
+                )
+                drawImage(
+                    image = image,
+                    srcOffset = IntOffset.Zero,
+                    srcSize = IntSize(image.width, image.height),
+                    dstOffset = IntOffset(rect.left.roundToInt(), rect.top.roundToInt()),
+                    dstSize = IntSize(
+                        rect.width.roundToInt().coerceAtLeast(1),
+                        rect.height.roundToInt().coerceAtLeast(1),
+                    ),
+                    filterQuality = FilterQuality.High,
+                )
+            }
         }
     }
 }
@@ -484,7 +646,6 @@ private fun FramedPreview(
 private fun PrintSettingsCard(
     editor: EditorState,
     onCopies: (Int) -> Unit,
-    onQuality: (Quality) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -524,23 +685,8 @@ private fun PrintSettingsCard(
                 ) { Text("+") }
             }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text("Quality", style = MaterialTheme.typography.bodyMedium)
-                Quality.entries.forEach { quality ->
-                    FilterChip(
-                        selected = editor.quality == quality,
-                        onClick = { onQuality(quality) },
-                        label = { Text(quality.label) },
-                    )
-                }
-            }
-
             Text(
-                "${editor.quality.width} × ${editor.quality.height} px · " +
-                    "${editor.quality.label} · 2×3 in",
+                "$PRINT_WIDTH × $PRINT_HEIGHT px · 2×3 in",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -615,7 +761,7 @@ private fun PrinterCard(
                     )
                     status?.battery?.let {
                         Text(
-                            "Battery $it%",
+                            batteryLabel(it),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -890,7 +1036,7 @@ private fun PrintBar(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "${editor.quality.label} px · ${editor.fit.label}",
+                    "$PRINT_WIDTH×$PRINT_HEIGHT px · ${editor.fit.label}",
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Text(

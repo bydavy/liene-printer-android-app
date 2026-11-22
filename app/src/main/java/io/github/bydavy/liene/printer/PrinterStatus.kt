@@ -87,3 +87,18 @@ fun jobStateLabel(state: Int?): String = when (state) {
     9 -> "Finished"
     else -> "Pending"
 }
+
+/**
+ * The printer reports battery as a 0–4 level (the vendor battery painter uses
+ * 0/25/50/75/100% fill), not a percentage. `4` means full.
+ */
+fun batteryLabel(level: Int): String = when (level) {
+    0 -> "Battery empty"
+    1 -> "Battery low"
+    2 -> "Battery 50%"
+    3 -> "Battery 75%"
+    4 -> "Battery full"
+    else -> "Battery $level/4"
+}
+
+fun isBatteryLow(level: Int): Boolean = level <= 1

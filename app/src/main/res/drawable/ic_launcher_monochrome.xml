@@ -4,14 +4,12 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- A photo emerging from the printer, matching the color foreground. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M38,22 L73,27 L68,61 L33,56 Z" />
     <path
         android:fillColor="#FFFFFFFF"
         android:fillType="evenOdd"
-        android:pathData="M30,34 H78 A6,6 0 0 1 84,40 V68 A6,6 0 0 1 78,74 H30 A6,6 0 0 1 24,68 V40 A6,6 0 0 1 30,34 Z M30,40 V68 H78 V40 Z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M37,45 A5,5 0 1 1 36.99,45 Z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M30,68 L45,52 L55,62 L63,55 L78,68 Z" />
+        android:pathData="M28,58 H80 A5,5 0 0 1 85,63 V79 A5,5 0 0 1 80,84 H28 A5,5 0 0 1 23,79 V63 A5,5 0 0 1 28,58 Z M31,64 H77 V69 H31 Z" />
 </vector>
