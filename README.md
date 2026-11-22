@@ -1,5 +1,9 @@
 # Liene Android App (Unofficial)
 
+[![Android CI](https://github.com/bydavy/liene-printer-android-app/actions/workflows/android.yml/badge.svg)](https://github.com/bydavy/liene-printer-android-app/actions/workflows/android.yml)
+[![Release](https://img.shields.io/github/v/release/bydavy/liene-printer-android-app?display_name=tag)](https://github.com/bydavy/liene-printer-android-app/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 An unofficial, open-source Android app for **Liene/Hannto photo printers**,
 written in Kotlin with Jetpack Compose. Share a photo from any gallery app,
 frame it for a 2×3 print, and send it over Bluetooth Classic SPP — no vendor
@@ -54,7 +58,7 @@ The app looks for a paired Bluetooth Classic device with “Liene”, “Pearl�
 ## Install
 
 Download the latest APK from
-[Releases](https://github.com/bydavy/liene-printer-android/releases/latest),
+[Releases](https://github.com/bydavy/liene-printer-android-app/releases/latest),
 open it, and allow installs from your browser/file manager if prompted.
 
 The release workflow produces an APK signed with a debug key unless release
@@ -126,7 +130,7 @@ pipeline has instrumented tests; run them on an emulator or phone with:
 ```
 
 Hardware tests require a printer; please open a
-[Printer support report](https://github.com/bydavy/liene-printer-android/issues/new?template=printer-support.md)
+[Printer support report](https://github.com/bydavy/liene-printer-android-app/issues/new?template=printer-support.md)
 with model, PID, firmware, Android version/device, and a Diagnostics log.
 The UI and image pipeline were smoke-tested on an Android 15 emulator; the
 Bluetooth print path still needs a real phone and printer.
