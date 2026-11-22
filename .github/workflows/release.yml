@@ -46,14 +46,28 @@ jobs:
             echo "LIENE_KEYSTORE_PATH=$RUNNER_TEMP/liene.jks" >> "$GITHUB_ENV"
           fi
 
-          ./gradlew --no-daemon :app:assembleRelease \
+          ./gradlew --no-daemon --stacktrace :app:assembleRelease \
             -PappVersionName="$version" \
-            -PappVersionCode="${GITHUB_RUN_NUMBER}"
+            -PappVersionCode="${GITHUB_RUN_NUMBER}" 2>&1 | tee "$RUNNER_TEMP/release-build.log"
 
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk \
             "dist/Liene-Android-${version}.apk"
           (cd dist && for f in Liene-Android-*.apk; do sha256sum "$f" > "$f.sha256"; done)
+
+      - name: Report release build failure
+        if: failure()
+        run: |
+          log="$RUNNER_TEMP/release-build.log"
+          if [[ -f "$log" ]]; then
+            summary=$(tail -60 "$log")
+            summary="${summary//'%'/'%25'}"
+            summary="${summary//$'\r'/'%0D'}"
+            summary="${summary//$'\n'/'%0A'}"
+            echo "::error title=release-build::$summary"
+          else
+            echo "::error title=release-build::Release build failed before Gradle produced a log."
+          fi
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
