@@ -8,6 +8,9 @@
   horizontal, focused, and grid layouts, live preview, and a print-preview
   screen for copies and final printing.
 - Collage layout options use white/grey diagram icons instead of text labels.
+- Per-photo zoom/pan directly in the collage preview, plus a frame editor with
+  rotate, replace, and reset for one photo at a time.
+- A Borders checkbox (on by default) and an explicit Randomize photos button.
 
 ## [0.1.2] - 2026-11-22
 

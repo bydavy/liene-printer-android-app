@@ -21,14 +21,25 @@ class CollageTest {
     }
 
     @Test
+    fun borderlessLayoutsTouchThePaperEdges() {
+        val cells = collageLayoutsFor(2, borders = false).first().cells
+        assertEquals(0f, cells[0].left, 0.001f)
+        assertEquals(0f, cells[0].top, 0.001f)
+        assertEquals(1f, cells[0].right, 0.001f)
+        assertEquals(0.5f, cells[0].bottom, 0.001f)
+        assertEquals(0.5f, cells[1].top, 0.001f)
+        assertEquals(1f, cells[1].bottom, 0.001f)
+    }
+
+    @Test
     fun rendersThreeColumnsWithTheRightColors() {
-        val images = listOf(
-            solid(Color.RED),
-            solid(Color.GREEN),
-            solid(Color.BLUE),
+        val photos = listOf(
+            CollagePhoto(solid(Color.RED)),
+            CollagePhoto(solid(Color.GREEN)),
+            CollagePhoto(solid(Color.BLUE)),
         )
         val layout = collageLayoutsFor(3).first { it.id == "h3" }
-        val output = renderCollage(images, layout, 600, 900)
+        val output = renderCollage(photos, layout, 600, 900)
         try {
             layout.cells.forEachIndexed { index, cell ->
                 val x = ((cell.left + cell.right) / 2f * 600f).toInt()
@@ -46,10 +57,31 @@ class CollageTest {
     }
 
     @Test
+    fun photoZoomGestureIsApplied() {
+        val frame = applyPhotoGesture(
+            frame = PhotoFrame(),
+            zoomChange = 2f,
+            panPxX = 0f,
+            panPxY = 0f,
+            viewportWidth = 300f,
+            viewportHeight = 300f,
+            sourceWidth = 600,
+            sourceHeight = 600,
+        )
+        assertEquals(2f, frame.zoom, 0.01f)
+        assertEquals(0f, frame.panX, 0.01f)
+        assertEquals(0f, frame.panY, 0.01f)
+    }
+
+    @Test
     fun jpegStaysWithinTheTransferBudget() {
-        val images = listOf(solid(Color.RED), solid(Color.GREEN), solid(Color.BLUE))
+        val photos = listOf(
+            CollagePhoto(solid(Color.RED)),
+            CollagePhoto(solid(Color.GREEN)),
+            CollagePhoto(solid(Color.BLUE)),
+        )
         val layout = collageLayoutsFor(3).first()
-        val jpeg = renderCollageJpeg(images, layout)
+        val jpeg = renderCollageJpeg(photos, layout)
         assertTrue(jpeg.size <= MAX_JPEG_BYTES)
         val decoded = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
         assertEquals(PRINT_WIDTH, decoded.width)

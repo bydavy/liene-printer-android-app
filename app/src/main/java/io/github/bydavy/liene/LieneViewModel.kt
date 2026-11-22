@@ -6,12 +6,15 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.bydavy.liene.image.CollageLayout
+import io.github.bydavy.liene.image.CollagePhoto
 import io.github.bydavy.liene.image.EditorState
 import io.github.bydavy.liene.image.Fit
 import io.github.bydavy.liene.image.ImageStore
 import io.github.bydavy.liene.image.PRINT_HEIGHT
 import io.github.bydavy.liene.image.PRINT_WIDTH
+import io.github.bydavy.liene.image.PhotoFrame
 import io.github.bydavy.liene.image.applyGesture
+import io.github.bydavy.liene.image.applyPhotoGesture
 import io.github.bydavy.liene.image.collageLayoutsFor
 import io.github.bydavy.liene.image.prepareJpeg
 import io.github.bydavy.liene.image.renderCollage
@@ -34,11 +37,13 @@ enum class CollageStage {
 }
 
 data class CollageState(
-    val photos: List<Bitmap>,
+    val photos: List<CollagePhoto>,
     val preview: Bitmap,
     val layouts: List<CollageLayout>,
     val layout: CollageLayout,
+    val borders: Boolean = true,
     val copies: Int = 1,
+    val editingPhoto: Int? = null,
     val preparing: Boolean = false,
     val error: String? = null,
 )
@@ -140,7 +145,7 @@ class LieneViewModel(application: Application) : AndroidViewModel(application) {
                     selected.map { uri ->
                         val (file, _) = ImageStore.copyToCache(getApplication(), uri)
                         try {
-                            ImageStore.loadOriented(file, maxDimension = 1600)
+                            CollagePhoto(ImageStore.loadOriented(file, maxDimension = 1600))
                         } finally {
                             file.delete()
                         }
@@ -149,7 +154,7 @@ class LieneViewModel(application: Application) : AndroidViewModel(application) {
                 if (photos.size < 2) {
                     throw IllegalArgumentException("Select at least two readable photos")
                 }
-                val layouts = collageLayoutsFor(photos.size)
+                val layouts = collageLayoutsFor(photos.size, borders = true)
                 val layout = layouts.first()
                 val preview = withContext(Dispatchers.IO) {
                     renderCollage(photos, layout, 600, 900)
@@ -173,13 +178,47 @@ class LieneViewModel(application: Application) : AndroidViewModel(application) {
         val state = _collage.value ?: return
         if (state.layout.id == layout.id) return
         _collage.value = state.copy(layout = layout, error = null)
+        refreshCollagePreview(state.photos, layout, state.borders)
+    }
+
+    fun randomizeCollagePhotos() {
+        val state = _collage.value ?: return
+        if (state.photos.size < 2) return
+        var photos = state.photos.shuffled()
+        if (photos == state.photos) {
+            photos = state.photos.drop(1) + state.photos.first()
+        }
+        _collage.value = state.copy(photos = photos, error = null)
+        refreshCollagePreview(photos, state.layout, state.borders)
+    }
+
+    fun setCollageCopies(copies: Int) {
+        _collage.update { it?.copy(copies = copies.coerceIn(1, 9)) }
+    }
+
+    fun setCollageBorders(borders: Boolean) {
+        val state = _collage.value ?: return
+        if (state.borders == borders) return
+        _collage.value = state.copy(borders = borders, error = null)
+        refreshCollagePreview(state.photos, state.layout, borders)
+    }
+
+    private fun refreshCollagePreview(
+        photos: List<CollagePhoto>,
+        layout: CollageLayout,
+        borders: Boolean,
+    ) {
         collagePreviewJob?.cancel()
         collagePreviewJob = viewModelScope.launch {
+            val renderLayout = layoutForRender(photos.size, layout, borders)
             val preview = withContext(Dispatchers.IO) {
-                renderCollage(state.photos, layout, 600, 900)
+                renderCollage(photos, renderLayout, 600, 900)
             }
             _collage.update { current ->
-                if (current?.layout?.id == layout.id) {
+                if (current?.layout?.id == layout.id &&
+                    current.photos == photos &&
+                    current.borders == borders
+                ) {
                     current.copy(preview = preview)
                 } else {
                     current
@@ -188,9 +227,125 @@ class LieneViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun setCollageCopies(copies: Int) {
-        _collage.update { it?.copy(copies = copies.coerceIn(1, 9)) }
+    fun openCollagePhoto(index: Int) {
+        _collage.update { state ->
+            if (state != null && index in state.photos.indices) {
+                state.copy(editingPhoto = index)
+            } else {
+                state
+            }
+        }
     }
+
+    fun closeCollagePhotoEditor() {
+        val state = _collage.value ?: return
+        if (state.editingPhoto == null) return
+        _collage.value = state.copy(editingPhoto = null)
+        refreshCollagePreview(state.photos, state.layout, state.borders)
+    }
+
+    fun resetCollagePhoto(index: Int) {
+        updateCollageFrame(index) { PhotoFrame() }
+    }
+
+    fun replaceCollagePhoto(index: Int, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val photo = withContext(Dispatchers.IO) {
+                    val (file, _) = ImageStore.copyToCache(getApplication(), uri)
+                    try {
+                        CollagePhoto(ImageStore.loadOriented(file, maxDimension = 1600))
+                    } finally {
+                        file.delete()
+                    }
+                }
+                _collage.update { state ->
+                    if (state == null || index !in state.photos.indices) {
+                        state
+                    } else {
+                        val photos = state.photos.toMutableList()
+                        photos[index] = photo
+                        state.copy(photos = photos, error = null)
+                    }
+                }
+                _collage.value?.let { current ->
+                    refreshCollagePreview(current.photos, current.layout, current.borders)
+                }
+            } catch (e: Exception) {
+                _message.value = e.message ?: "Could not replace that photo"
+            }
+        }
+    }
+
+    fun rotateCollagePhoto(index: Int) {
+        updateCollageFrame(index) { frame ->
+            frame.copy(
+                rotation = (frame.rotation + 90) % 360,
+                zoom = 1f,
+                panX = 0f,
+                panY = 0f,
+            )
+        }
+    }
+
+    private fun updateCollageFrame(index: Int, update: (PhotoFrame) -> PhotoFrame) {
+        _collage.update { state ->
+            if (state == null || index !in state.photos.indices) {
+                state
+            } else {
+                val photos = state.photos.toMutableList()
+                photos[index] = photos[index].copy(frame = update(photos[index].frame))
+                state.copy(photos = photos)
+            }
+        }
+        _collage.value?.let { current ->
+            refreshCollagePreview(current.photos, current.layout, current.borders)
+        }
+    }
+
+    fun applyCollagePhotoGesture(
+        index: Int,
+        zoomChange: Float,
+        panPxX: Float,
+        panPxY: Float,
+        viewportWidth: Float,
+        viewportHeight: Float,
+    ) {
+        _collage.update { state ->
+            if (state == null || index !in state.photos.indices) {
+                state
+            } else {
+                val photos = state.photos.toMutableList()
+                val photo = photos[index]
+                photos[index] = photo.copy(
+                    frame = applyPhotoGesture(
+                        frame = photo.frame,
+                        zoomChange = zoomChange,
+                        panPxX = panPxX,
+                        panPxY = panPxY,
+                        viewportWidth = viewportWidth,
+                        viewportHeight = viewportHeight,
+                        sourceWidth = photo.bitmap.width,
+                        sourceHeight = photo.bitmap.height,
+                    ),
+                )
+                state.copy(photos = photos)
+            }
+        }
+    }
+
+    private fun layoutForRender(
+        photoCount: Int,
+        layout: CollageLayout,
+        borders: Boolean,
+    ): CollageLayout =
+        if (borders) {
+            layout
+        } else {
+            collageLayoutsFor(photoCount, borders = false)
+                .firstOrNull { it.id == layout.id }
+                ?: layout
+        }
 
     fun openCollagePreview() {
         if (_collage.value != null) {
@@ -219,7 +374,10 @@ class LieneViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val jpeg = withContext(Dispatchers.IO) {
-                    renderCollageJpeg(state.photos, state.layout)
+                    renderCollageJpeg(
+                        state.photos,
+                        layoutForRender(state.photos.size, state.layout, state.borders),
+                    )
                 }
                 val file = File(getApplication<Application>().cacheDir, "liene-collage.jpg")
                 withContext(Dispatchers.IO) { file.writeBytes(jpeg) }

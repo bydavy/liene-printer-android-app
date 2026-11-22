@@ -46,6 +46,10 @@ Liene/Hannto models remain untested.
   Share several photos at once to jump straight into a collage.
 - **Collage**: pick 2–4 photos, choose vertical, horizontal, focused, or grid
   layouts, then print from a dedicated preview screen with copies.
+- **Per-photo framing**: tap a photo or pinch/drag in the preview to zoom and
+  reposition it; the frame editor also rotates or replaces individual photos.
+- **Borders and shuffle**: toggle white collage borders and randomize the photo
+  order with explicit controls.
 - **Mobile-first editor**: rotate, Fit/Fill framing, pinch-to-zoom and drag,
   2:3 print preview with white borders for Fit.
 - **Final confirmation**: a full 2:3 preview and summary before any print job

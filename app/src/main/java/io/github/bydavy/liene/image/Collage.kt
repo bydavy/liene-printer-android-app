@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
+import kotlin.math.roundToInt
 
 data class CollageCell(
     val left: Float,
@@ -20,32 +21,48 @@ data class CollageLayout(
     val cells: List<CollageCell>,
 )
 
+data class PhotoFrame(
+    val zoom: Float = 1f,
+    val panX: Float = 0f,
+    val panY: Float = 0f,
+    val rotation: Int = 0,
+)
+
+data class CollagePhoto(
+    val bitmap: Bitmap,
+    val frame: PhotoFrame = PhotoFrame(),
+)
+
 private const val MARGIN = 0.035f
 private const val GAP = 0.018f
 
-fun collageLayoutsFor(count: Int): List<CollageLayout> = when (count) {
-    2 -> listOf(
-        gridLayout("v2", "Vertical", rows = listOf(1f, 1f), cols = listOf(1f)),
-        gridLayout("h2", "Horizontal", rows = listOf(1f), cols = listOf(1f, 1f)),
-        gridLayout("top2", "Top focus", rows = listOf(0.62f, 0.38f), cols = listOf(1f)),
-        gridLayout("left2", "Left focus", rows = listOf(1f), cols = listOf(0.62f, 0.38f)),
-    )
+fun collageLayoutsFor(count: Int, borders: Boolean = true): List<CollageLayout> {
+    val margin = if (borders) MARGIN else 0f
+    val gap = if (borders) GAP else 0f
+    return when (count) {
+        2 -> listOf(
+            gridLayout("v2", "Vertical", listOf(1f, 1f), listOf(1f), margin, gap),
+            gridLayout("h2", "Horizontal", listOf(1f), listOf(1f, 1f), margin, gap),
+            gridLayout("top2", "Top focus", listOf(0.62f, 0.38f), listOf(1f), margin, gap),
+            gridLayout("left2", "Left focus", listOf(1f), listOf(0.62f, 0.38f), margin, gap),
+        )
 
-    3 -> listOf(
-        gridLayout("v3", "Vertical", rows = listOf(1f, 1f, 1f), cols = listOf(1f)),
-        gridLayout("h3", "Horizontal", rows = listOf(1f), cols = listOf(1f, 1f, 1f)),
-        heroLayout("left3", "Left hero", heroFirst = true),
-        heroLayout("top3", "Top hero", heroFirst = false),
-    )
+        3 -> listOf(
+            gridLayout("v3", "Vertical", listOf(1f, 1f, 1f), listOf(1f), margin, gap),
+            gridLayout("h3", "Horizontal", listOf(1f), listOf(1f, 1f, 1f), margin, gap),
+            heroLayout("left3", "Left hero", true, margin, gap),
+            heroLayout("top3", "Top hero", false, margin, gap),
+        )
 
-    4 -> listOf(
-        gridLayout("grid4", "2×2", rows = listOf(1f, 1f), cols = listOf(1f, 1f)),
-        gridLayout("v4", "4 down", rows = listOf(1f, 1f, 1f, 1f), cols = listOf(1f)),
-        gridLayout("h4", "4 across", rows = listOf(1f), cols = listOf(1f, 1f, 1f, 1f)),
-        heroGridLayout("left4", "Left hero", heroRows = 3),
-    )
+        4 -> listOf(
+            gridLayout("grid4", "2×2", listOf(1f, 1f), listOf(1f, 1f), margin, gap),
+            gridLayout("v4", "4 down", listOf(1f, 1f, 1f, 1f), listOf(1f), margin, gap),
+            gridLayout("h4", "4 across", listOf(1f), listOf(1f, 1f, 1f, 1f), margin, gap),
+            heroGridLayout("left4", "Left hero", 3, margin, gap),
+        )
 
-    else -> emptyList()
+        else -> emptyList()
+    }
 }
 
 private fun gridLayout(
@@ -53,88 +70,107 @@ private fun gridLayout(
     name: String,
     rows: List<Float>,
     cols: List<Float>,
-): CollageLayout = CollageLayout(id, name, grid(rows, cols))
+    margin: Float,
+    gap: Float,
+): CollageLayout = CollageLayout(id, name, grid(rows, cols, margin, gap))
 
-private fun grid(rows: List<Float>, cols: List<Float>): List<CollageCell> {
-    val contentW = 1f - 2f * MARGIN - GAP * (cols.size - 1)
-    val contentH = 1f - 2f * MARGIN - GAP * (rows.size - 1)
+private fun grid(
+    rows: List<Float>,
+    cols: List<Float>,
+    margin: Float,
+    gap: Float,
+): List<CollageCell> {
+    val contentW = 1f - 2f * margin - gap * (cols.size - 1)
+    val contentH = 1f - 2f * margin - gap * (rows.size - 1)
     val rowSum = rows.sum()
     val colSum = cols.sum()
     val heights = rows.map { contentH * it / rowSum }
     val widths = cols.map { contentW * it / colSum }
     val cells = ArrayList<CollageCell>(rows.size * cols.size)
-    var y = MARGIN
+    var y = margin
     for (r in rows.indices) {
-        var x = MARGIN
+        var x = margin
         for (c in cols.indices) {
             cells += CollageCell(x, y, x + widths[c], y + heights[r])
-            x += widths[c] + GAP
+            x += widths[c] + gap
         }
-        y += heights[r] + GAP
+        y += heights[r] + gap
     }
     return cells
 }
 
 /** One large cell on the left/top, the remaining cells stacked beside it. */
-private fun heroLayout(id: String, name: String, heroFirst: Boolean): CollageLayout {
-    val contentW = 1f - 2f * MARGIN
-    val contentH = 1f - 2f * MARGIN
+private fun heroLayout(
+    id: String,
+    name: String,
+    heroFirst: Boolean,
+    margin: Float,
+    gap: Float,
+): CollageLayout {
+    val contentW = 1f - 2f * margin
+    val contentH = 1f - 2f * margin
     val heroShare = 0.62f
     return if (heroFirst) {
-        val split = MARGIN + (contentW - GAP) * heroShare
+        val split = margin + (contentW - gap) * heroShare
         val cells = listOf(
-            CollageCell(MARGIN, MARGIN, split, 1f - MARGIN),
+            CollageCell(margin, margin, split, 1f - margin),
         ).toMutableList()
-        val smallH = (contentH - GAP) / 2f
-        cells += CollageCell(split + GAP, MARGIN, 1f - MARGIN, MARGIN + smallH)
+        val smallH = (contentH - gap) / 2f
+        cells += CollageCell(split + gap, margin, 1f - margin, margin + smallH)
         cells += CollageCell(
-            split + GAP,
-            MARGIN + smallH + GAP,
-            1f - MARGIN,
-            1f - MARGIN,
+            split + gap,
+            margin + smallH + gap,
+            1f - margin,
+            1f - margin,
         )
         CollageLayout(id, name, cells)
     } else {
-        val split = MARGIN + (contentH - GAP) * heroShare
+        val split = margin + (contentH - gap) * heroShare
         val cells = listOf(
-            CollageCell(MARGIN, MARGIN, 1f - MARGIN, split),
+            CollageCell(margin, margin, 1f - margin, split),
         ).toMutableList()
-        val smallW = (contentW - GAP) / 2f
-        cells += CollageCell(MARGIN, split + GAP, MARGIN + smallW, 1f - MARGIN)
+        val smallW = (contentW - gap) / 2f
+        cells += CollageCell(margin, split + gap, margin + smallW, 1f - margin)
         cells += CollageCell(
-            MARGIN + smallW + GAP,
-            split + GAP,
-            1f - MARGIN,
-            1f - MARGIN,
+            margin + smallW + gap,
+            split + gap,
+            1f - margin,
+            1f - margin,
         )
         CollageLayout(id, name, cells)
     }
 }
 
 /** A left-hand hero plus a stack of [heroRows] photos on the right. */
-private fun heroGridLayout(id: String, name: String, heroRows: Int): CollageLayout {
-    val contentW = 1f - 2f * MARGIN
-    val contentH = 1f - 2f * MARGIN
-    val split = MARGIN + (contentW - GAP) / 2f
+private fun heroGridLayout(
+    id: String,
+    name: String,
+    heroRows: Int,
+    margin: Float,
+    gap: Float,
+): CollageLayout {
+    val contentW = 1f - 2f * margin
+    val contentH = 1f - 2f * margin
+    val split = margin + (contentW - gap) / 2f
     val cells = mutableListOf(
-        CollageCell(MARGIN, MARGIN, split, 1f - MARGIN),
+        CollageCell(margin, margin, split, 1f - margin),
     )
-    val smallH = (contentH - GAP * (heroRows - 1)) / heroRows
+    val smallH = (contentH - gap * (heroRows - 1)) / heroRows
     for (i in 0 until heroRows) {
-        val top = MARGIN + i * (smallH + GAP)
-        cells += CollageCell(split + GAP, top, 1f - MARGIN, top + smallH)
+        val top = margin + i * (smallH + gap)
+        cells += CollageCell(split + gap, top, 1f - margin, top + smallH)
     }
     return CollageLayout(id, name, cells)
 }
 
 fun renderCollage(
-    images: List<Bitmap>,
+    photos: List<CollagePhoto>,
     layout: CollageLayout,
     width: Int,
     height: Int,
 ): Bitmap {
-    require(images.size == layout.cells.size) {
-        "layout ${layout.id} needs ${layout.cells.size} photos, got ${images.size}"
+    require(photos.size == layout.cells.size) {
+        "layout ${layout.id} needs ${layout.cells.size} photos, got ${photos.size}"
     }
     require(width > 0 && height > 0)
     val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -142,26 +178,37 @@ fun renderCollage(
     canvas.drawColor(Color.WHITE)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
     layout.cells.forEachIndexed { index, cell ->
-        val image = images[index]
+        val photo = photos[index]
         val dst = RectF(
             cell.left * width,
             cell.top * height,
             cell.right * width,
             cell.bottom * height,
         )
-        val src = centerCrop(image.width, image.height, dst.width(), dst.height())
-        canvas.drawBitmap(image, src, dst, paint)
+        val rotated = ImageStore.rotate(photo.bitmap, photo.frame.rotation)
+        try {
+            val src = sourceCrop(
+                rotated.width,
+                rotated.height,
+                dst.width(),
+                dst.height(),
+                photo.frame,
+            )
+            canvas.drawBitmap(rotated, src, dst, paint)
+        } finally {
+            if (rotated !== photo.bitmap) rotated.recycle()
+        }
     }
     return output
 }
 
 fun renderCollageJpeg(
-    images: List<Bitmap>,
+    photos: List<CollagePhoto>,
     layout: CollageLayout,
     width: Int = PRINT_WIDTH,
     height: Int = PRINT_HEIGHT,
 ): ByteArray {
-    val collage = renderCollage(images, layout, width, height)
+    val collage = renderCollage(photos, layout, width, height)
     return try {
         encodeJpeg(collage)
     } finally {
@@ -169,21 +216,70 @@ fun renderCollageJpeg(
     }
 }
 
-private fun centerCrop(
+fun applyPhotoGesture(
+    frame: PhotoFrame,
+    zoomChange: Float,
+    panPxX: Float,
+    panPxY: Float,
+    viewportWidth: Float,
+    viewportHeight: Float,
+    sourceWidth: Int,
+    sourceHeight: Int,
+): PhotoFrame {
+    val zoom = (frame.zoom * zoomChange).coerceIn(1f, 8f)
+    val rect = computeDrawRect(
+        sourceWidth = sourceWidth,
+        sourceHeight = sourceHeight,
+        canvasWidth = viewportWidth,
+        canvasHeight = viewportHeight,
+        fit = Fit.Cover,
+        zoom = zoom,
+    )
+    val slackX = (rect.width - viewportWidth).coerceAtLeast(0f)
+    val slackY = (rect.height - viewportHeight).coerceAtLeast(0f)
+    return frame.copy(
+        zoom = zoom,
+        panX = if (slackX > 0f) {
+            (frame.panX + panPxX / (slackX / 2f)).coerceIn(-1f, 1f)
+        } else {
+            0f
+        },
+        panY = if (slackY > 0f) {
+            (frame.panY + panPxY / (slackY / 2f)).coerceIn(-1f, 1f)
+        } else {
+            0f
+        },
+    )
+}
+
+private fun sourceCrop(
     sourceWidth: Int,
     sourceHeight: Int,
     targetWidth: Float,
     targetHeight: Float,
+    frame: PhotoFrame,
 ): Rect {
-    val sourceAspect = sourceWidth.toFloat() / sourceHeight
-    val targetAspect = targetWidth / targetHeight
-    return if (sourceAspect > targetAspect) {
-        val cropWidth = (sourceHeight * targetAspect).toInt().coerceAtLeast(1)
-        val left = (sourceWidth - cropWidth) / 2
-        Rect(left, 0, left + cropWidth, sourceHeight)
-    } else {
-        val cropHeight = (sourceWidth / targetAspect).toInt().coerceAtLeast(1)
-        val top = (sourceHeight - cropHeight) / 2
-        Rect(0, top, sourceWidth, top + cropHeight)
-    }
+    val baseScale = maxOf(
+        targetWidth / sourceWidth,
+        targetHeight / sourceHeight,
+    )
+    val scale = baseScale * frame.zoom.coerceIn(1f, 8f)
+    val drawWidth = sourceWidth * scale
+    val drawHeight = sourceHeight * scale
+    val slackX = (drawWidth - targetWidth).coerceAtLeast(0f)
+    val slackY = (drawHeight - targetHeight).coerceAtLeast(0f)
+    val left = (targetWidth - drawWidth) / 2f +
+        frame.panX.coerceIn(-1f, 1f) * slackX / 2f
+    val top = (targetHeight - drawHeight) / 2f +
+        frame.panY.coerceIn(-1f, 1f) * slackY / 2f
+    val cropWidth = (targetWidth / scale).coerceIn(1f, sourceWidth.toFloat())
+    val cropHeight = (targetHeight / scale).coerceIn(1f, sourceHeight.toFloat())
+    val x = (-left / scale).coerceIn(0f, sourceWidth - cropWidth)
+    val y = (-top / scale).coerceIn(0f, sourceHeight - cropHeight)
+    return Rect(
+        x.roundToInt(),
+        y.roundToInt(),
+        (x + cropWidth).roundToInt().coerceAtMost(sourceWidth),
+        (y + cropHeight).roundToInt().coerceAtMost(sourceHeight),
+    )
 }

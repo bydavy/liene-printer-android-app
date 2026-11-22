@@ -15,9 +15,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -40,6 +42,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -59,6 +62,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -82,6 +86,8 @@ import io.github.bydavy.liene.LieneViewModel
 import io.github.bydavy.liene.image.CollageLayout
 import io.github.bydavy.liene.image.EditorState
 import io.github.bydavy.liene.image.Fit
+import io.github.bydavy.liene.image.ImageStore
+import io.github.bydavy.liene.image.collageLayoutsFor
 import io.github.bydavy.liene.image.PRINT_HEIGHT
 import io.github.bydavy.liene.image.PRINT_WIDTH
 import io.github.bydavy.liene.image.computeDrawRect
@@ -116,6 +122,17 @@ fun MainScreen(viewModel: LieneViewModel) {
             uris.size >= 2 -> viewModel.loadCollage(uris)
             uris.size == 1 -> viewModel.loadImage(uris.first())
             else -> viewModel.reportError("Select 2–4 photos to build a collage.")
+        }
+    }
+
+    var replaceIndex by remember { mutableStateOf<Int?>(null) }
+    val pickReplacement = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        val index = replaceIndex
+        replaceIndex = null
+        if (uri != null && index != null) {
+            viewModel.replaceCollagePhoto(index, uri)
         }
     }
 
@@ -171,10 +188,10 @@ fun MainScreen(viewModel: LieneViewModel) {
 
     val collageActive = collage != null || collageLoading
     BackHandler(enabled = collageActive) {
-        if (collageStage == CollageStage.PrintPreview) {
-            viewModel.backToCollageEditor()
-        } else {
-            viewModel.closeCollage()
+        when {
+            collage?.editingPhoto != null -> viewModel.closeCollagePhotoEditor()
+            collageStage == CollageStage.PrintPreview -> viewModel.backToCollageEditor()
+            else -> viewModel.closeCollage()
         }
     }
 
@@ -188,11 +205,12 @@ fun MainScreen(viewModel: LieneViewModel) {
     val error = editor.error ?: message ?: printer.error
     var confirmPrint by remember { mutableStateOf(false) }
     val activeCollage = collage
+    val editingPhoto = activeCollage?.editingPhoto
     val goBack = {
-        if (collageStage == CollageStage.PrintPreview) {
-            viewModel.backToCollageEditor()
-        } else {
-            viewModel.closeCollage()
+        when {
+            editingPhoto != null -> viewModel.closeCollagePhotoEditor()
+            collageStage == CollageStage.PrintPreview -> viewModel.backToCollageEditor()
+            else -> viewModel.closeCollage()
         }
     }
 
@@ -208,18 +226,23 @@ fun MainScreen(viewModel: LieneViewModel) {
                     if (collageActive) {
                         Column {
                             Text(
-                                if (collageStage == CollageStage.PrintPreview) {
-                                    "Print preview"
-                                } else {
-                                    "Collage"
+                                when {
+                                    editingPhoto != null -> "Frame photo"
+                                    collageStage == CollageStage.PrintPreview -> "Print preview"
+                                    else -> "Collage"
                                 },
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                activeCollage?.let {
-                                    "${it.photos.size} photos · ${it.layout.name}"
-                                } ?: "Preparing…",
+                                when {
+                                    editingPhoto != null && activeCollage != null ->
+                                        "Photo ${editingPhoto + 1} of ${activeCollage.photos.size}"
+                                    activeCollage != null ->
+                                        "${activeCollage.photos.size} photos · " +
+                                            activeCollage.layout.name
+                                    else -> "Preparing…"
+                                },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -253,6 +276,20 @@ fun MainScreen(viewModel: LieneViewModel) {
         bottomBar = {
             when {
                 collageLoading -> CollageLoadingBar()
+                activeCollage != null && editingPhoto != null -> CollagePhotoFrameBar(
+                    onReplace = {
+                        replaceIndex = editingPhoto
+                        pickReplacement.launch(
+                            PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly,
+                            ),
+                        )
+                    },
+                    onRotate = { viewModel.rotateCollagePhoto(editingPhoto) },
+                    onReset = { viewModel.resetCollagePhoto(editingPhoto) },
+                    onDone = viewModel::closeCollagePhotoEditor,
+                )
+
                 activeCollage != null && collageStage == CollageStage.PrintPreview ->
                     CollagePreviewBar(
                         collage = activeCollage,
@@ -292,6 +329,23 @@ fun MainScreen(viewModel: LieneViewModel) {
                 }
             }
 
+            activeCollage != null && editingPhoto != null ->
+                CollagePhotoFrameContent(
+                    collage = activeCollage,
+                    index = editingPhoto,
+                    onGesture = { zoom, panX, panY, width, height ->
+                        viewModel.applyCollagePhotoGesture(
+                            editingPhoto,
+                            zoom,
+                            panX,
+                            panY,
+                            width,
+                            height,
+                        )
+                    },
+                    modifier = Modifier.padding(innerPadding),
+                )
+
             activeCollage != null && collageStage == CollageStage.PrintPreview ->
                 CollagePrintPreviewContent(
                     collage = activeCollage,
@@ -316,6 +370,10 @@ fun MainScreen(viewModel: LieneViewModel) {
                 onDismissError = viewModel::dismissError,
                 onResume = viewModel::resumePrinter,
                 onLayout = viewModel::selectCollageLayout,
+                onBorders = viewModel::setCollageBorders,
+                onTransformPhoto = viewModel::applyCollagePhotoGesture,
+                onEditPhoto = viewModel::openCollagePhoto,
+                onRandomize = viewModel::randomizeCollagePhotos,
                 modifier = Modifier.padding(innerPadding),
             )
 
@@ -423,6 +481,137 @@ private fun CollageLoadingBar() {
 }
 
 @Composable
+private fun CollagePhotoFrameBar(
+    onReplace: () -> Unit,
+    onRotate: () -> Unit,
+    onReset: () -> Unit,
+    onDone: () -> Unit,
+) {
+    Surface(tonalElevation = 3.dp, color = MaterialTheme.colorScheme.surface) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onReplace) { Text("Replace") }
+            TextButton(onClick = onRotate) { Text("Rotate 90°") }
+            TextButton(onClick = onReset) { Text("Reset") }
+            Spacer(Modifier.weight(1f))
+            Button(onClick = onDone) { Text("Done") }
+        }
+    }
+}
+
+@Composable
+private fun CollagePhotoFrameContent(
+    collage: CollageState,
+    index: Int,
+    onGesture: (Float, Float, Float, Float, Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val photo = collage.photos.getOrNull(index) ?: return
+    val renderLayout = if (collage.borders) {
+        collage.layout
+    } else {
+        collageLayoutsFor(collage.photos.size, borders = false)
+            .firstOrNull { it.id == collage.layout.id }
+            ?: collage.layout
+    }
+    val cell = renderLayout.cells.getOrNull(index) ?: return
+    val cellAspect = (cell.right - cell.left) * PRINT_WIDTH.toFloat() /
+        ((cell.bottom - cell.top) * PRINT_HEIGHT.toFloat())
+    if (cellAspect <= 0f) return
+
+    val rotated = remember(photo.bitmap, photo.frame.rotation) {
+        ImageStore.rotate(photo.bitmap, photo.frame.rotation)
+    }
+    val image = remember(rotated) { rotated.asImageBitmap() }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            "Photo ${index + 1} of ${collage.photos.size}",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            "Pinch to zoom and drag to choose the part of the photo to print.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            var viewportWidth = maxWidth
+            var viewportHeight = viewportWidth / cellAspect
+            if (viewportHeight > 430.dp) {
+                viewportHeight = 430.dp
+                viewportWidth = viewportHeight * cellAspect
+            }
+            Box(
+                modifier = Modifier
+                    .size(viewportWidth, viewportHeight)
+                    .clipToBounds()
+                    .background(Color.White)
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    )
+                    .pointerInput(index, photo.bitmap) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            onGesture(
+                                zoom,
+                                pan.x,
+                                pan.y,
+                                size.width.toFloat(),
+                                size.height.toFloat(),
+                            )
+                        }
+                    },
+            ) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val rect = computeDrawRect(
+                        sourceWidth = image.width,
+                        sourceHeight = image.height,
+                        canvasWidth = size.width,
+                        canvasHeight = size.height,
+                        fit = Fit.Cover,
+                        zoom = photo.frame.zoom,
+                        panX = photo.frame.panX,
+                        panY = photo.frame.panY,
+                    )
+                    drawImage(
+                        image = image,
+                        srcOffset = IntOffset.Zero,
+                        srcSize = IntSize(image.width, image.height),
+                        dstOffset = IntOffset(rect.left.roundToInt(), rect.top.roundToInt()),
+                        dstSize = IntSize(
+                            rect.width.roundToInt().coerceAtLeast(1),
+                            rect.height.roundToInt().coerceAtLeast(1),
+                        ),
+                        filterQuality = FilterQuality.High,
+                    )
+                }
+            }
+        }
+        Text(
+            "Rotate and Replace apply only to this photo.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
 private fun CollageEditorBar(collage: CollageState, onPrint: () -> Unit) {
     Surface(tonalElevation = 3.dp, color = MaterialTheme.colorScheme.surface) {
         Row(
@@ -521,8 +710,19 @@ private fun CollageEditorContent(
     onDismissError: () -> Unit,
     onResume: () -> Unit,
     onLayout: (CollageLayout) -> Unit,
+    onBorders: (Boolean) -> Unit,
+    onTransformPhoto: (Int, Float, Float, Float, Float, Float) -> Unit,
+    onEditPhoto: (Int) -> Unit,
+    onRandomize: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val renderLayout = if (collage.borders) {
+        collage.layout
+    } else {
+        collageLayoutsFor(collage.photos.size, borders = false)
+            .firstOrNull { it.id == collage.layout.id }
+            ?: collage.layout
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -543,9 +743,7 @@ private fun CollageEditorContent(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            Image(
-                bitmap = collage.preview.asImageBitmap(),
-                contentDescription = "Collage preview",
+            Box(
                 modifier = Modifier
                     .fillMaxWidth(0.72f)
                     .aspectRatio(2f / 3f)
@@ -553,16 +751,69 @@ private fun CollageEditorContent(
                     .border(
                         1.dp,
                         MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                    ),
-                contentScale = ContentScale.Fit,
-            )
+                    )
+                    .pointerInput(collage.layout.id, collage.borders, collage.photos.size) {
+                        detectTransformGestures { centroid, pan, zoom, _ ->
+                            val nx = centroid.x / size.width
+                            val ny = centroid.y / size.height
+                            val index = renderLayout.cells.indexOfFirst { cell ->
+                                nx >= cell.left && nx <= cell.right &&
+                                    ny >= cell.top && ny <= cell.bottom
+                            }
+                            if (index >= 0) {
+                                onTransformPhoto(
+                                    index,
+                                    zoom,
+                                    pan.x,
+                                    pan.y,
+                                    size.width.toFloat(),
+                                    size.height.toFloat(),
+                                )
+                            }
+                        }
+                    }
+                    .pointerInput(collage.layout.id, collage.borders, collage.photos.size) {
+                        detectTapGestures { position ->
+                            val nx = position.x / size.width
+                            val ny = position.y / size.height
+                            val index = renderLayout.cells.indexOfFirst { cell ->
+                                nx >= cell.left && nx <= cell.right &&
+                                    ny >= cell.top && ny <= cell.bottom
+                            }
+                            if (index >= 0) onEditPhoto(index)
+                        }
+                    },
+            ) {
+                Image(
+                    bitmap = collage.preview.asImageBitmap(),
+                    contentDescription = "Collage preview — pinch or drag a photo to reframe it",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                )
+            }
         }
-
         Text(
-            "Layout",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
+            "Pinch or drag a photo to reframe it; tap one to rotate or fine-tune.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Layout",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.weight(1f))
+            Checkbox(
+                checked = collage.borders,
+                onCheckedChange = onBorders,
+            )
+            Text("Borders", style = MaterialTheme.typography.bodyMedium)
+        }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(collage.layouts, key = { it.id }) { layout ->
                 LayoutOption(
@@ -572,8 +823,14 @@ private fun CollageEditorContent(
                 )
             }
         }
+        TextButton(
+            onClick = onRandomize,
+            enabled = collage.photos.size > 1,
+        ) {
+            Text("Randomize photos")
+        }
         Text(
-            "Pick a layout, then print.",
+            "Pick a layout, then print. Randomize shuffles the photos.",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -709,7 +966,8 @@ private fun CollagePrintPreviewContent(
                     ) { Text("+") }
                 }
                 Text(
-                    "$PRINT_WIDTH × $PRINT_HEIGHT px · ${collage.layout.name}",
+                    "$PRINT_WIDTH × $PRINT_HEIGHT px · ${collage.layout.name} · " +
+                        if (collage.borders) "borders" else "no borders",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
