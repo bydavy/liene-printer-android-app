@@ -27,6 +27,9 @@ selecting a photo is slower and more awkward than using the gallery app you
 already know. This project exists so you never have to use the vendor app's
 photo browser to print a photo.
 
+There is also **no account or sign-in**. Open the app, share a photo, and
+print — everything stays local over Bluetooth, with no cloud dependency.
+
 The protocol was reverse-engineered and hardware-tested by the companion
 [Liene Desktop App](https://github.com/bydavy/liene-printer-desktop-app). The
 Android client has been hardware-tested on a **Pixel 11 Pro (Android 17)** with
