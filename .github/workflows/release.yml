@@ -40,7 +40,7 @@ jobs:
             version="0.0.0-dev"
           fi
 
-          if [[ -n "${LIENE_KEYSTORE_BASE64}" ]]; then
+          if [[ -n "${LIENE_KEYSTORE_BASE64:-}" ]]; then
             echo "$LIENE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/liene.jks"
             export LIENE_KEYSTORE_PATH="$RUNNER_TEMP/liene.jks"
             echo "LIENE_KEYSTORE_PATH=$RUNNER_TEMP/liene.jks" >> "$GITHUB_ENV"
