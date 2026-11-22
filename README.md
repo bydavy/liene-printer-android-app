@@ -13,6 +13,18 @@ app required.
 > for a printer we own. No vendor app code, firmware, or assets are
 > redistributed. Liene and Pearl are trademarks of their respective owners.
 
+## Why this app exists
+
+The main motivation is the **share-to-print flow**. Browse and edit photos in
+whatever gallery app you already use — Google Photos, your camera roll, or any
+third-party gallery — then tap Share → **Liene**. The app takes over only the
+print-specific part: 2:3 framing, quality, copies, printer status, and upload.
+
+The official Liene app's built-in gallery experience is poor: finding and
+selecting a photo is slower and more awkward than using the gallery app you
+already know. This project exists so you never have to use the vendor app's
+photo browser to print a photo.
+
 The protocol was reverse-engineered and hardware-tested by the companion
 [Liene Desktop App](https://github.com/bydavy/liene-printer-desktop-app). The
 Android client is new: it builds and its protocol tests pass, but **printing
