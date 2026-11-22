@@ -11,3 +11,4 @@ captures/
 *.keystore
 app/release/
 dist/
+.kotlin/
