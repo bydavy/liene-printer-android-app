@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -586,49 +587,35 @@ private fun LayoutOption(
     onClick: () -> Unit,
 ) {
     val accent = MaterialTheme.colorScheme.primary
-    val cellColor = if (selected) {
-        accent.copy(alpha = 0.35f)
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant
-    }
-    Column(
+    val cellColor = Color(0xFFBDBDBD)
+    Box(
         modifier = Modifier
-            .width(86.dp)
-            .clickable(onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .width(78.dp)
+            .aspectRatio(2f / 3f)
+            .background(Color.White)
+            .border(
+                if (selected) 2.dp else 1.dp,
+                if (selected) accent else MaterialTheme.colorScheme.outline,
+            )
+            .clickable(
+                role = Role.Button,
+                onClickLabel = layout.name,
+                onClick = onClick,
+            )
+            .padding(4.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(2f / 3f)
-                .background(Color.White)
-                .border(
-                    if (selected) 2.dp else 1.dp,
-                    if (selected) accent else MaterialTheme.colorScheme.outline,
+        Canvas(Modifier.fillMaxSize()) {
+            layout.cells.forEach { cell ->
+                drawRect(
+                    color = cellColor,
+                    topLeft = Offset(cell.left * size.width, cell.top * size.height),
+                    size = Size(
+                        (cell.right - cell.left) * size.width,
+                        (cell.bottom - cell.top) * size.height,
+                    ),
                 )
-                .padding(4.dp),
-        ) {
-            Canvas(Modifier.fillMaxSize()) {
-                layout.cells.forEach { cell ->
-                    drawRect(
-                        color = cellColor,
-                        topLeft = Offset(cell.left * size.width, cell.top * size.height),
-                        size = Size(
-                            (cell.right - cell.left) * size.width,
-                            (cell.bottom - cell.top) * size.height,
-                        ),
-                    )
-                }
             }
         }
-        Text(
-            layout.name,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
