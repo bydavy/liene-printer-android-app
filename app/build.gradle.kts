@@ -6,15 +6,15 @@ plugins {
 }
 
 val keystorePath = System.getenv("LIENE_KEYSTORE_PATH")
-val appVersionName = (findProperty("appVersionName") as String?) ?: "0.2.0"
-val appVersionCode = ((findProperty("appVersionCode") as String?) ?: "5").toIntOrNull() ?: 5
+val appVersionName = (findProperty("appVersionName") as String?) ?: "0.3.0"
+val appVersionCode = ((findProperty("appVersionCode") as String?) ?: "6").toIntOrNull() ?: 6
 
 android {
-    namespace = "io.github.bydavy.liene"
+    namespace = "io.github.bydavy.openliene"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "io.github.bydavy.liene"
+        applicationId = "io.github.bydavy.openliene"
         minSdk = 26
         targetSdk = 35
         versionCode = appVersionCode

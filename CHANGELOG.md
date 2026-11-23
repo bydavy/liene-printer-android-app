@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking:** change the Android application ID and Kotlin namespace to
+  `io.github.bydavy.openliene`. Android treats this as a new app, so uninstall
+  the previous `io.github.bydavy.liene` build before installing this one.
+
 ## [0.2.0] - 2026-11-22
 
 ### Added
