@@ -5,7 +5,9 @@
 ### Added
 
 - Roborazzi + Robolectric screenshot and interaction tests for the collage
-  editor, frame editor, and print preview, with committed golden images.
+  editor, frame editor, print preview, single-photo editor, print confirmation,
+  printer/job cards, and diagnostics, with committed golden images.
+- Unit tests for printer status, alert, and job-state parsing.
 
 ## [0.1.3] - 2026-11-22
 

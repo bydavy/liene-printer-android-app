@@ -999,7 +999,7 @@ internal fun CollagePrintPreviewContent(
 }
 
 @Composable
-private fun PrintConfirmationDialog(
+internal fun PrintConfirmationDialog(
     editor: EditorState,
     printer: PrinterUiState,
     onDismiss: () -> Unit,
@@ -1061,12 +1061,19 @@ private fun PrintConfirmationDialog(
             }
         },
         confirmButton = {
-            Button(onClick = onConfirm, enabled = canConfirm) {
+            Button(
+                onClick = onConfirm,
+                enabled = canConfirm,
+                modifier = Modifier.testTag("confirm-print"),
+            ) {
                 Text("Print now")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("cancel-print"),
+            ) { Text("Cancel") }
         },
     )
 }
@@ -1143,7 +1150,7 @@ private fun PrintPreview(editor: EditorState, modifier: Modifier) {
 }
 
 @Composable
-private fun PhotoEditorCard(
+internal fun PhotoEditorCard(
     editor: EditorState,
     onChoose: () -> Unit,
     onCollage: () -> Unit,
@@ -1371,7 +1378,7 @@ private fun FramedPreview(
 }
 
 @Composable
-private fun PrintSettingsCard(
+internal fun PrintSettingsCard(
     editor: EditorState,
     onCopies: (Int) -> Unit,
 ) {
@@ -1397,7 +1404,9 @@ private fun PrintSettingsCard(
                     onClick = { onCopies(editor.copies - 1) },
                     enabled = editor.copies > 1,
                     contentPadding = PaddingValues(0.dp),
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier
+                        .size(40.dp)
+                        .testTag("copies-minus"),
                 ) { Text("−") }
                 Text(
                     editor.copies.toString(),
@@ -1409,7 +1418,9 @@ private fun PrintSettingsCard(
                     onClick = { onCopies(editor.copies + 1) },
                     enabled = editor.copies < 9,
                     contentPadding = PaddingValues(0.dp),
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier
+                        .size(40.dp)
+                        .testTag("copies-plus"),
                 ) { Text("+") }
             }
 
@@ -1423,7 +1434,7 @@ private fun PrintSettingsCard(
 }
 
 @Composable
-private fun PrinterCard(
+internal fun PrinterCard(
     printer: PrinterUiState,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
@@ -1553,7 +1564,7 @@ private fun PrinterCard(
 }
 
 @Composable
-private fun JobCard(
+internal fun JobCard(
     printer: PrinterUiState,
     onCancel: () -> Unit,
     onDismiss: () -> Unit,
@@ -1642,9 +1653,15 @@ private fun JobCard(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (printer.busy) {
-                    TextButton(onClick = onCancel) { Text("Cancel job") }
+                    TextButton(
+                        onClick = onCancel,
+                        modifier = Modifier.testTag("job-cancel"),
+                    ) { Text("Cancel job") }
                 } else {
-                    TextButton(onClick = onDismiss) { Text("Dismiss") }
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.testTag("job-dismiss"),
+                    ) { Text("Dismiss") }
                 }
             }
         }
@@ -1652,7 +1669,7 @@ private fun JobCard(
 }
 
 @Composable
-private fun ErrorBanner(
+internal fun ErrorBanner(
     message: String,
     showResume: Boolean,
     onDismiss: () -> Unit,
@@ -1678,9 +1695,15 @@ private fun ErrorBanner(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(onClick = onDismiss) { Text("Dismiss") }
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("error-dismiss"),
+                ) { Text("Dismiss") }
                 if (showResume) {
-                    Button(onClick = onResume) { Text("Resume printer") }
+                    Button(
+                        onClick = onResume,
+                        modifier = Modifier.testTag("error-resume"),
+                    ) { Text("Resume printer") }
                 }
             }
         }
@@ -1688,7 +1711,7 @@ private fun ErrorBanner(
 }
 
 @Composable
-private fun DiagnosticsCard(log: List<String>) {
+internal fun DiagnosticsCard(log: List<String>) {
     var expanded by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1738,7 +1761,7 @@ private fun DiagnosticsCard(log: List<String>) {
 }
 
 @Composable
-private fun PrintBar(
+internal fun PrintBar(
     editor: EditorState,
     printer: PrinterUiState,
     canPrint: Boolean,
@@ -1777,6 +1800,7 @@ private fun PrintBar(
                 onClick = onPrint,
                 enabled = canPrint,
                 contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp),
+                modifier = Modifier.testTag("print-action"),
             ) {
                 Text(
                     if (editor.preparing) "Preparing…" else "Print",

@@ -154,8 +154,8 @@ Without those variables, `assembleRelease` falls back to debug signing.
 
 Unit tests cover frame encoding/decoding, checksums, stream resynchronisation,
 JSON-RPC shapes, chunking, job parsing, and the Fit/Fill/zoom math. The collage
-UI is covered by Roborazzi + Robolectric screenshot and interaction tests that
-run on the JVM without an emulator:
+and single-photo editor UI is covered by Roborazzi + Robolectric screenshot and
+interaction tests that run on the JVM without an emulator:
 
 ```sh
 ./gradlew :app:verifyRoborazziDebug   # compare against committed goldens
