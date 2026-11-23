@@ -9,6 +9,12 @@
   printer/job cards, and diagnostics, with committed golden images.
 - Unit tests for printer status, alert, and job-state parsing.
 
+### Changed
+
+- Renamed the app to **Open Liene**. The launcher label, share-target name,
+  notification title, and release APK name use the new name. The application ID
+  remains `io.github.bydavy.liene` so existing installs update in place.
+
 ## [0.1.3] - 2026-11-22
 
 ### Added

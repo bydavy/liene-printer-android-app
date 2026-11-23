@@ -251,7 +251,7 @@ fun MainScreen(viewModel: LieneViewModel) {
                     } else {
                         Column {
                             Text(
-                                "Liene",
+                                "Open Liene",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -1208,7 +1208,7 @@ internal fun PhotoEditorCard(
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            "From any gallery app, tap Share and choose Liene. " +
+                            "From any gallery app, tap Share and choose Open Liene. " +
                                 "Or pick a photo here.",
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.bodySmall,

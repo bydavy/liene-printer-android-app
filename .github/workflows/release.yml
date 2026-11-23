@@ -52,8 +52,8 @@ jobs:
 
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk \
-            "dist/Liene-Android-${version}.apk"
-          (cd dist && for f in Liene-Android-*.apk; do sha256sum "$f" > "$f.sha256"; done)
+            "dist/Open-Liene-Android-${version}.apk"
+          (cd dist && for f in Open-Liene-Android-*.apk; do sha256sum "$f" > "$f.sha256"; done)
 
       - name: Report release build failure
         if: failure()
@@ -81,11 +81,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/Liene-Android-*.apk
-            dist/Liene-Android-*.apk.sha256
+            dist/Open-Liene-Android-*.apk
+            dist/Open-Liene-Android-*.apk.sha256
           fail_on_unmatched_files: true
           body: |
-            ## Liene Android App ${{ github.ref_name }}
+            ## Open Liene Android App ${{ github.ref_name }}
 
             **APK for Android 8+** — sideload with unknown sources enabled.
             The app is signed with a debug key unless release signing secrets
@@ -93,7 +93,7 @@ jobs:
 
             Pair the printer in Android's Bluetooth settings, open the app,
             grant Nearby devices access, then share a photo from any gallery
-            app to **Liene** (or choose one in the app) and print.
+            app to **Open Liene** (or choose one in the app) and print.
 
             **Status:** hardware-tested on the N200 Pro (DMP130) with a Pixel
             11 Pro on Android 17 — share, connect, status, and printing work.

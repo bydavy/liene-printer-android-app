@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Liene"
+rootProject.name = "OpenLiene"
 include(":app")

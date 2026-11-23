@@ -1,7 +1,7 @@
-# Liene Android App (Unofficial)
+# Open Liene (Unofficial)
 
-[![Android CI](https://github.com/bydavy/liene-printer-android-app/actions/workflows/android.yml/badge.svg)](https://github.com/bydavy/liene-printer-android-app/actions/workflows/android.yml)
-[![Release](https://img.shields.io/github/v/release/bydavy/liene-printer-android-app?display_name=tag)](https://github.com/bydavy/liene-printer-android-app/releases/latest)
+[![Android CI](https://github.com/bydavy/open-liene-printer-android/actions/workflows/android.yml/badge.svg)](https://github.com/bydavy/open-liene-printer-android/actions/workflows/android.yml)
+[![Release](https://img.shields.io/github/v/release/bydavy/open-liene-printer-android?display_name=tag)](https://github.com/bydavy/open-liene-printer-android/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20me-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/davyleggieri)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support%20me-ffdd00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/davyleggieri)
@@ -19,7 +19,7 @@ app required.
 
 The main motivation is the **share-to-print flow**. Browse and edit photos in
 whatever gallery app you already use — Google Photos, your camera roll, or any
-third-party gallery — then tap Share → **Liene**. The app takes over only the
+third-party gallery — then tap Share → **Open Liene**. The app takes over only the
 print-specific part: 2:3 framing, copies, printer status, and upload.
 
 The official Liene app's built-in gallery experience is poor: finding and
@@ -31,18 +31,18 @@ There is also **no account or sign-in**. Open the app, share a photo, and
 print — everything stays local over Bluetooth, with no cloud dependency.
 
 The protocol was reverse-engineered and hardware-tested by the companion
-[Liene Desktop App](https://github.com/bydavy/liene-printer-desktop-app). The
+[Open Liene](https://github.com/bydavy/open-liene-printer-desktop). The
 Android client has been hardware-tested on a **Pixel 11 Pro (Android 17)** with
 an N200 Pro: share, Bluetooth connection, status, and printing all work. Other
 Liene/Hannto models remain untested.
 
-![Liene Android app](docs/app.png)
+![Open Liene Android app](docs/app.png)
 
 ![Collage editor](docs/collage.png)
 
 ## Features
 
-- **Share target**: from Google Photos or any gallery, tap Share → **Liene**.
+- **Share target**: from Google Photos or any gallery, tap Share → **Open Liene**.
   Share several photos at once to jump straight into a collage.
 - **Collage**: pick 2–4 photos, choose vertical, horizontal, focused, or grid
   layouts, then print from a dedicated preview screen with copies.
@@ -87,7 +87,7 @@ The app looks for a paired Bluetooth Classic device with “Liene”, “Pearl�
 ## Install
 
 Download the latest APK from
-[Releases](https://github.com/bydavy/liene-printer-android-app/releases/latest),
+[Releases](https://github.com/bydavy/open-liene-printer-android/releases/latest),
 open it, and allow installs from your browser/file manager if prompted.
 
 The release workflow produces an APK signed with a debug key unless release
@@ -97,7 +97,7 @@ not for Play Store distribution.
 1. Pair the printer in **Settings → Bluetooth & devices** (the device is named
    `Liene Pearl N200 Pro-XXXX` on the N200 Pro).
 2. Open the app and tap **Connect**, granting Nearby devices access.
-3. From a gallery app, share a photo to **Liene** (or use **Choose** in the
+3. From a gallery app, share a photo to **Open Liene** (or use **Choose** in the
    app), frame it, and tap **Print**.
 4. For a collage, tap **Collage** and select 2–4 photos — or share several
    photos at once. Pick a layout, tap **Print**, then choose copies and print.
@@ -123,7 +123,7 @@ export LIENE_KEYSTORE_PATH=/path/to/liene.jks
 export LIENE_KEYSTORE_PASSWORD=...
 export LIENE_KEY_ALIAS=...
 export LIENE_KEY_PASSWORD=...
-./gradlew :app:assembleRelease -PappVersionName=0.1.3 -PappVersionCode=4
+./gradlew :app:assembleRelease -PappVersionName=0.2.0 -PappVersionCode=5
 ```
 
 Without those variables, `assembleRelease` falls back to debug signing.
@@ -136,7 +136,7 @@ Without those variables, `assembleRelease` falls back to debug signing.
   Kotlin and shares the byte-level spec with the desktop project.
 - **Protocol**: frames, checksums, JSON-RPC methods, media constants, and
   892-byte chunk uploads are documented in
-  [PROTOCOL.md](https://github.com/bydavy/liene-printer-desktop-app/blob/main/docs/PROTOCOL.md).
+  [PROTOCOL.md](https://github.com/bydavy/open-liene-printer-desktop/blob/main/docs/PROTOCOL.md).
 - **RFCOMM**: the printer's data channel is channel 1. The client first tries
   Android's SPP service-record lookup, then falls back to the direct channel
   (as the desktop client does).
@@ -170,7 +170,7 @@ instrumented tests; run them on an emulator or phone with:
 ```
 
 Hardware tests require a printer; please open a
-[Printer support report](https://github.com/bydavy/liene-printer-android-app/issues/new?template=printer-support.md)
+[Printer support report](https://github.com/bydavy/open-liene-printer-android/issues/new?template=printer-support.md)
 with model, PID, firmware, Android version/device, and a Diagnostics log.
 Share, Bluetooth connect, status, and printing were verified on a Pixel 11 Pro
 (Android 17) with an N200 Pro. The UI and image pipeline are also smoke-tested
@@ -179,7 +179,7 @@ on an Android 15 emulator.
 ## Releasing
 
 Push a `v*` tag. `.github/workflows/release.yml` builds
-`Liene-Android-<version>.apk` plus a SHA-256 file. For a proper release
+`Open-Liene-Android-<version>.apk` plus a SHA-256 file. For a proper release
 signature, add these repository secrets:
 
 - `LIENE_KEYSTORE_BASE64`
@@ -199,7 +199,7 @@ for processing, and the prepared JPEG is deleted after the print attempt.
 ## Acknowledgements
 
 Protocol work and the desktop client:
-[bydavy/liene-printer-desktop-app](https://github.com/bydavy/liene-printer-desktop-app).
+[bydavy/open-liene-printer-desktop](https://github.com/bydavy/open-liene-printer-desktop).
 Prior community work on the Liene PixCut S1:
 
 - [sincethestudy/liene-pixcut-s1-api](https://github.com/sincethestudy/liene-pixcut-s1-api)
